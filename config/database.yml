@@ -81,6 +81,4 @@ test:
 #
 production:
   <<: *default
-  database: wecare_insights_production
-  username: wecare_insights
-  password: <%= ENV['WECARE_INSIGHTS_DATABASE_PASSWORD'] %>
+  url: <%= ENV['DATABASE_URL'] %>
