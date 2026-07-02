@@ -58,13 +58,14 @@
 <script nonce="<%= content_security_policy_nonce %>">
   const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  const dbTypeLabel = (t) => ({ dedicated: 'dedicado', shared: 'compartilhado' }[t] || esc(t));
 
   async function loadEnvs() {
     const res = await fetch('/environments', { headers: { Accept: 'application/json' } });
     if (res.status === 401) { window.location = '/login'; return; }
     const envs = await res.json();
     document.getElementById('envRows').innerHTML = envs.map(e =>
-      `<tr><td>${esc(e.name)}</td><td class="muted">${esc(e.base_url)}</td><td>${esc(e.db_type)}</td><td>${esc(e.companies)}</td>
+      `<tr><td>${esc(e.name)}</td><td class="muted">${esc(e.base_url)}</td><td>${dbTypeLabel(e.db_type)}</td><td>${esc(e.companies)}</td>
        <td>${e.active ? '<span class="badge">ativo</span>' : '<span class="badge">inativo</span>'}</td></tr>`).join('')
       || '<tr><td colspan="5" class="muted">Nenhum ambiente cadastrado.</td></tr>';
   }

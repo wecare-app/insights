@@ -346,12 +346,14 @@
     const sub = p.subscription || {};
     const chip = (t) => `<span class="badge" style="margin:2px;">${esc(t)}</span>`;
     const features = [...new Set(p.features_enabled || [])].map(chip).join('') || '<span class="muted">nenhuma</span>';
+    const MODALITY_LABELS = { points: 'Pontos', 'pre-paid': 'Pontos (pré-pago)', 'pos-paid': 'Pontos (pós-pago)', credits: 'Créditos' };
+    const modalityLabel = (m) => MODALITY_LABELS[m] || (m ? esc(m) : '—');
 
     html += kpis([
       ['Saldo do cliente (R$)', fmtBRL(d.balances?.total_brl), 'Saldo não gasto (pontos ou créditos convertidos em R$).'],
       ['Colaboradores', `${fmt(p.users_active)} / ${fmt(p.users_total)}`, 'Ativos / total.'],
       ['Porte', esc(p.porte || '—'), 'Faixa por nº de colaboradores.'],
-      ['Modelo de pontos', esc(p.modality || '—'), 'points = pré-pago em pontos; credits = créditos em R$.'],
+      ['Modelo de pontos', modalityLabel(p.modality), 'Pontos = saldo em pontos; Créditos = saldo em R$.'],
       ['Reconhecimentos', fmt(d.recognitions?.metrics?.recognitions_count), 'No período.'],
       ['Resgates', fmt(d.redemptions?.metrics?.total_redemptions), 'No período.'],
     ]);
