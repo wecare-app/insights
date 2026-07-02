@@ -7,6 +7,7 @@ class ClientCompaniesController < ApplicationController
         id: company.id,
         wecare_id: company.wecare_id,
         name: company.name,
+        status: company.status,
         active: company.active,
         environment: company.environment.name,
         last_synced_at: company.last_synced_at

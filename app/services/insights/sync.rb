@@ -2,6 +2,10 @@ module Insights
   module Sync
     module_function
 
+    # Status que contam como "ativa no produto". 'released' mantém compat com a
+    # versão antiga do monólito; a nova manda 'active'/'trial'/'blocked'/'demo'.
+    ACTIVE_STATUSES = %w[active released].freeze
+
     def all
       Environment.active.find_each { |environment| environment(environment) }
     end
@@ -13,28 +17,29 @@ module Insights
         wecare_id = sanitize_id(company['id'])
         next if wecare_id.blank?
 
-        record = environment.client_companies.find_by(wecare_id: wecare_id)
+        status = company['status'].to_s.presence
+        active = active_status?(status)
 
-        # Só empresas ativas no produto (não bloqueadas). Se o monólito não mandar
-        # status (versão antiga), trata como ativa para não quebrar.
-        unless company_active?(company)
-          record&.update(active: false)
-          next
-        end
+        record = environment.client_companies.find_by(wecare_id: wecare_id)
+        next if record.nil? && !active # não cria registro de empresa inativa nova
 
         record ||= environment.client_companies.new(wecare_id: wecare_id)
         record.name = sanitize_name(company['name'])
+        record.status = status
         record.last_synced_at = Time.current
-        record.active = true if record.new_record?
+        if !active
+          record.active = false
+        elsif record.new_record?
+          record.active = true
+        end
         record.save!
       end
     rescue InternalApiClient::Error => e
       Rails.logger.warn("[insights sync] #{environment.name}: #{e.message}")
     end
 
-    def company_active?(company)
-      status = company['status'].to_s
-      status.blank? || status == 'released'
+    def active_status?(status)
+      status.blank? || ACTIVE_STATUSES.include?(status)
     end
 
     def sanitize_id(value)

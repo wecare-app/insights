@@ -51,7 +51,7 @@
   <button class="btn btn-outline btn-sm" id="removeDisabledBtn" type="button">Remover desabilitadas</button>
 </div>
 <table>
-  <thead><tr><th>Empresa</th><th>Ambiente</th><th>ID</th><th>Última sync</th><th>Habilitada</th><th></th></tr></thead>
+  <thead><tr><th>Empresa</th><th>Ambiente</th><th>ID</th><th>Status</th><th>Última sync</th><th>Habilitada</th><th></th></tr></thead>
   <tbody id="coRows"></tbody>
 </table>
 
@@ -69,15 +69,19 @@
       || '<tr><td colspan="5" class="muted">Nenhum ambiente cadastrado.</td></tr>';
   }
 
+  const STATUS_LABELS = { released: 'ativa', active: 'ativa', blocked: 'bloqueada', trial: 'trial', demo: 'demo' };
+  const statusLabel = (s) => STATUS_LABELS[s] || (s ? esc(s) : '—');
+
   async function loadCompanies() {
     const res = await fetch('/client_companies', { headers: { Accept: 'application/json' } });
     const cos = await res.json();
     document.getElementById('coRows').innerHTML = cos.map(c =>
       `<tr><td>${esc(c.name)}</td><td class="muted">${esc(c.environment)}</td><td class="muted">${esc(c.wecare_id)}</td>
+       <td class="muted">${statusLabel(c.status)}</td>
        <td class="muted">${c.last_synced_at ? new Date(c.last_synced_at).toLocaleString('pt-BR') : '—'}</td>
        <td><label class="switch"><input type="checkbox" data-id="${esc(c.id)}" ${c.active ? 'checked' : ''}><span class="slider"></span></label></td>
        <td><button class="link-remove" data-remove="${esc(c.id)}" title="Remover">✕</button></td></tr>`).join('')
-      || '<tr><td colspan="6" class="muted">Nenhuma empresa. Cadastre um ambiente e sincronize.</td></tr>';
+      || '<tr><td colspan="7" class="muted">Nenhuma empresa. Cadastre um ambiente e sincronize.</td></tr>';
 
     document.querySelectorAll('#coRows input[type=checkbox]').forEach(cb => cb.addEventListener('change', async () => {
       await fetch(`/client_companies/${cb.dataset.id}/toggle`, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() } });
