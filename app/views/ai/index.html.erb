@@ -5,37 +5,37 @@
 </div>
 
 <div class="card" style="margin-bottom:20px;">
-  <p style="margin:0;">Os dados desta ferramenta são anonimizados (sem nome, e-mail ou CPF). Você pode pedir para uma IA analisar, cruzar informações e sugerir ações que nenhum gráfico fixo mostra.</p>
+  <p style="margin:0;">Os dados desta ferramenta são anonimizados (sem nome, e-mail ou CPF). Você pode pedir para uma inteligência artificial analisar, comparar informações e sugerir ações.</p>
 </div>
 
 <div class="section-title">Opção 1: conectar o Claude (recomendado)</div>
 <div class="card" style="margin-bottom:20px;">
-  <p style="margin:0 0 10px;">No Claude (claude.ai) dá para conectar esta ferramenta como um "connector". Aí o Claude consulta os dados ao vivo, sem você copiar e colar nada.</p>
+  <p style="margin:0 0 10px;">O Claude (claude.ai) pode se conectar a esta ferramenta e consultar os dados diretamente, sem precisar copiar e colar. Para conectar:</p>
   <ol style="margin:0;padding-left:20px;line-height:1.9;">
-    <li>No Claude, clique no botão de anexar (+), vá em <b>Connectors</b> e depois <b>Add custom connector</b>.</li>
+    <li>No Claude, clique no botão de anexar (+), abra <b>Connectors</b> e depois <b>Add custom connector</b>.</li>
     <li><b>Name:</b> WeCare Insights</li>
     <li><b>Remote MCP server URL:</b> copie o endereço abaixo.</li>
     <li>Deixe os campos de OAuth em branco e clique <b>Add</b>.</li>
   </ol>
   <% if @mcp_url %>
     <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin:12px 0 0;overflow:auto;font-size:13px;"><%= @mcp_url %></pre>
-    <p class="muted" style="margin:8px 0 0;">Essa URL contém a senha de acesso; trate como confidencial. Ferramentas disponíveis: listar clientes, visão geral, benchmark por porte e dados de um cliente.</p>
+    <p class="muted" style="margin:8px 0 0;">Este endereço dá acesso aos dados. Trate como confidencial.</p>
   <% else %>
-    <p class="muted" style="margin:12px 0 0;">A URL de conexão aparece aqui quando o time técnico define a variável <code>MCP_TOKEN</code> no servidor.</p>
+    <p class="muted" style="margin:12px 0 0;">O endereço de conexão aparece aqui quando o time técnico configura o acesso no servidor.</p>
   <% end %>
 
-  <p class="muted" style="margin:12px 0 0;"><b>ChatGPT:</b> também suporta connectors MCP (no modo desenvolvedor / planos Business, Enterprise e Pro). A mesma URL acima funciona lá. Se a sua conta não tiver essa opção, use a Opção 2.</p>
+  <p class="muted" style="margin:12px 0 0;">O ChatGPT também aceita esse tipo de conexão (nos planos Business, Enterprise e Pro). O mesmo endereço funciona nele. Se a sua conta não tiver essa opção, use a Opção 2.</p>
 </div>
 
 <div class="section-title">Opção 2: copiar e colar</div>
 <div class="card" style="margin-bottom:20px;">
-  <p style="margin:0 0 8px;">Funciona em qualquer IA (Claude ou ChatGPT), sem configurar nada:</p>
+  <p style="margin:0 0 8px;">Funciona em qualquer inteligência artificial, sem configuração:</p>
   <ol style="margin:0;padding-left:20px;line-height:1.9;">
     <li>Abra o <b>Dashboard</b> ou a aba <b>Cliente</b> e ajuste o período e as empresas.</li>
     <li>Copie os números da tela.</li>
-    <li>Cole na IA e faça a pergunta.</li>
+    <li>Cole na inteligência artificial e faça a pergunta.</li>
   </ol>
-  <p class="muted" style="margin:12px 0 6px;">Prompt inicial sugerido:</p>
+  <p class="muted" style="margin:12px 0 6px;">Sugestão de mensagem inicial:</p>
   <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin:0;overflow:auto;font-size:13px;white-space:pre-wrap;">Você é analista de Customer Success da WeCare. Abaixo estão dados
 anonimizados de clientes (sem dados pessoais). Analise e me diga:
 1) quais clientes mostram sinais de churn (queda de engajamento ou uso);
@@ -44,16 +44,16 @@ anonimizados de clientes (sem dados pessoais). Analise e me diga:
 [cole aqui os dados]</pre>
 </div>
 
-<div class="section-title">Boas perguntas para começar</div>
+<div class="section-title">Perguntas para começar</div>
 <div class="card" style="margin-bottom:20px;">
   <ul style="margin:0;padding-left:20px;line-height:2;">
     <li>“Quem recebe mais reconhecimento também resgata mais recompensas?”</li>
-    <li>“Quais clientes têm funcionalidade ativa mas uso zero no período?”</li>
-    <li>“Compare o cliente X com a mediana do seu porte e diga onde ele está abaixo.”</li>
+    <li>“Quais clientes têm uma funcionalidade ativa, mas sem uso no período?”</li>
+    <li>“Compare o cliente X com a média das empresas do mesmo porte.”</li>
     <li>“Liste os clientes com queda de acessos mês a mês.”</li>
   </ul>
 </div>
 
 <div class="card muted" style="font-size:13px;">
-  <b>Privacidade:</b> os dados são pseudonimizados (colaboradores viram um código, sem nome, e-mail ou CPF). Ainda assim são dados pessoais pela LGPD. Use apenas em ferramentas corporativas autorizadas e não compartilhe externamente sem aprovação.
+  <b>Privacidade:</b> os dados não têm nome, e-mail ou CPF; cada colaborador aparece como um código. Ainda assim são dados pessoais pela LGPD. Use apenas em ferramentas corporativas autorizadas e não compartilhe fora da empresa sem aprovação.
 </div>
