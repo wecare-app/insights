@@ -5,6 +5,16 @@ module Insights
     MAX_CACHE_TTL = 1800
     CACHE_TTL = [ENV.fetch('INSIGHTS_CACHE_TTL', 900).to_i, MAX_CACHE_TTL].min
 
+    # No overview a dashboard usa só as métricas de cada seção — nunca as listas.
+    # Pedir apenas as métricas corta drasticamente o payload por empresa.
+    OVERVIEW_FIELDS = %w[
+      recognitions.metrics accesses.metrics redemptions.metrics balances company_profile
+      gratitudes.metrics feedbacks.metrics one_on_ones.metrics skill_evaluations.metrics
+      outcome_evaluations.metrics achievements.metrics social.metrics
+    ].join(',').freeze
+
+    OVERVIEW_CONCURRENCY = ENV.fetch('INSIGHTS_OVERVIEW_CONCURRENCY', 8).to_i
+
     def active_companies
       ClientCompany.active.includes(:environment).select { |c| c.environment.active? }
     end
@@ -33,13 +43,9 @@ module Insights
     def overview(params = {})
       params = params.dup
       selected = filter_companies(active_companies, params.delete(:companies))
+      query = params.merge(fields: OVERVIEW_FIELDS)
 
-      results = selected.map do |company|
-        data = company_analytics(company, params)
-        { 'client' => company.name, 'wecare_id' => company.wecare_id, 'data' => data, 'error' => nil }
-      rescue InternalApiClient::Error => e
-        { 'client' => company.name, 'wecare_id' => company.wecare_id, 'data' => nil, 'error' => e.message }
-      end
+      results = fetch_companies(selected, query)
 
       {
         'clients_considered' => results.map { |r| r['client'] },
@@ -47,6 +53,40 @@ module Insights
         'totals' => aggregate_totals(results),
         'per_client' => results
       }
+    end
+
+    # Busca em paralelo (fan-out de HTTP) para caber no limite de 30s do Heroku
+    # com muitas empresas. Um pool de threads consome uma fila de trabalho.
+    def fetch_companies(companies, query)
+      queue = Queue.new
+      companies.each { |c| queue << c }
+      results = []
+      mutex = Mutex.new
+      workers = [OVERVIEW_CONCURRENCY, companies.size].min
+      return [] if workers.zero?
+
+      threads = Array.new(workers) do
+        Thread.new do
+          loop do
+            company = begin
+              queue.pop(true)
+            rescue ThreadError
+              break
+            end
+            row = fetch_company_row(company, query)
+            mutex.synchronize { results << row }
+          end
+        end
+      end
+      threads.each(&:join)
+      results
+    end
+
+    def fetch_company_row(company, query)
+      data = company_analytics(company, query)
+      { 'client' => company.name, 'wecare_id' => company.wecare_id, 'data' => data, 'error' => nil }
+    rescue InternalApiClient::Error => e
+      { 'client' => company.name, 'wecare_id' => company.wecare_id, 'data' => nil, 'error' => e.message }
     end
 
     def invalidate(client_company)
