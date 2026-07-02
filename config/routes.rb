@@ -21,7 +21,8 @@ Rails.application.routes.draw do
   resources :environments, only: %i[index create] do
     post :sync, on: :collection
   end
-  resources :client_companies, only: %i[index] do
+  resources :client_companies, only: %i[index destroy] do
     post :toggle, on: :member
+    delete :disabled, on: :collection, action: :destroy_disabled
   end
 end

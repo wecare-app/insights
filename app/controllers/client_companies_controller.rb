@@ -23,4 +23,19 @@ class ClientCompaniesController < ApplicationController
 
     render json: { id: company.id, active: company.active }
   end
+
+  def destroy
+    company = ClientCompany.find(params[:id])
+    Insights::Analytics.invalidate(company)
+    company.destroy!
+
+    head :no_content
+  end
+
+  # Remove de uma vez todas as empresas desabilitadas (ex.: bloqueadas no produto).
+  def destroy_disabled
+    removed = ClientCompany.where(active: false).destroy_all.size
+
+    render json: { removed: removed }
+  end
 end

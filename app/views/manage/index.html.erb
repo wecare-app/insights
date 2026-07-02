@@ -46,9 +46,12 @@
   <tbody id="envRows"></tbody>
 </table>
 
-<div class="section-title">Empresas</div>
+<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+  <span>Empresas</span>
+  <button class="btn btn-outline btn-sm" id="removeDisabledBtn" type="button">Remover desabilitadas</button>
+</div>
 <table>
-  <thead><tr><th>Empresa</th><th>Ambiente</th><th>ID</th><th>Última sync</th><th>Habilitada</th></tr></thead>
+  <thead><tr><th>Empresa</th><th>Ambiente</th><th>ID</th><th>Última sync</th><th>Habilitada</th><th></th></tr></thead>
   <tbody id="coRows"></tbody>
 </table>
 
@@ -72,13 +75,28 @@
     document.getElementById('coRows').innerHTML = cos.map(c =>
       `<tr><td>${esc(c.name)}</td><td class="muted">${esc(c.environment)}</td><td class="muted">${esc(c.wecare_id)}</td>
        <td class="muted">${c.last_synced_at ? new Date(c.last_synced_at).toLocaleString('pt-BR') : '—'}</td>
-       <td><label class="switch"><input type="checkbox" data-id="${esc(c.id)}" ${c.active ? 'checked' : ''}><span class="slider"></span></label></td></tr>`).join('')
-      || '<tr><td colspan="5" class="muted">Nenhuma empresa. Cadastre um ambiente e sincronize.</td></tr>';
+       <td><label class="switch"><input type="checkbox" data-id="${esc(c.id)}" ${c.active ? 'checked' : ''}><span class="slider"></span></label></td>
+       <td><button class="link-remove" data-remove="${esc(c.id)}" title="Remover">✕</button></td></tr>`).join('')
+      || '<tr><td colspan="6" class="muted">Nenhuma empresa. Cadastre um ambiente e sincronize.</td></tr>';
 
     document.querySelectorAll('#coRows input[type=checkbox]').forEach(cb => cb.addEventListener('change', async () => {
       await fetch(`/client_companies/${cb.dataset.id}/toggle`, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() } });
     }));
+
+    document.querySelectorAll('#coRows button[data-remove]').forEach(btn => btn.addEventListener('click', async () => {
+      if (!confirm('Remover esta empresa da lista?')) return;
+      await fetch(`/client_companies/${btn.dataset.remove}`, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() } });
+      loadCompanies();
+    }));
   }
+
+  document.getElementById('removeDisabledBtn').addEventListener('click', async () => {
+    if (!confirm('Remover TODAS as empresas desabilitadas da lista?')) return;
+    const res = await fetch('/client_companies/disabled', { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() } });
+    const j = await res.json().catch(() => ({}));
+    alert(`${j.removed ?? 0} empresa(s) removida(s).`);
+    loadCompanies();
+  });
 
   document.getElementById('envForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
