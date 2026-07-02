@@ -1,5 +1,6 @@
 require_relative "boot"
 
+require "openssl"
 require "rails"
 # Pick the frameworks you want:
 require "active_model/railtie"
@@ -37,7 +38,12 @@ module WecareInsights
 
     config.time_zone = 'America/Sao_Paulo'
 
-    # Cache (lazy loading) no Redis.
-    config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1') }
+    # Cache (lazy loading) no Redis. driver :ruby porque o hiredis não suporta
+    # SSL, e o Heroku Redis usa rediss:// com certificado self-signed.
+    config.cache_store = :redis_cache_store, {
+      url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'),
+      driver: :ruby,
+      ssl_params: { verify_mode: OpenSSL::SSL::VERIFY_NONE }
+    }
   end
 end
