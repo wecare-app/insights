@@ -129,7 +129,6 @@
   function renderRecognitions() {
     const html = kpis([
       ['Participantes', fmt(sumBy(d => d.recognitions?.metrics?.participants)), 'Colaboradores participantes do programa de reconhecimento.'],
-      ['Reconhecedores', fmt(sumBy(d => d.recognitions?.metrics?.senders)), 'Colaboradores que enviaram ao menos 1 reconhecimento no período.'],
       ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares (360) enviados no período.'],
       ['Pontos distribuídos em reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.distributed_points)), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal.'],
       ['Curtidas', fmt(sumBy(d => d.recognitions?.metrics?.likes)), 'Curtidas nos reconhecimentos no período.'],
