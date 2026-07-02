@@ -1,0 +1,19 @@
+<div style="max-width:420px;margin:80px auto;font-family:-apple-system,Segoe UI,Roboto,sans-serif;text-align:center;">
+  <h1 style="font-size:22px;">WeCare Insights</h1>
+  <p style="color:#64748b;">Acesso restrito a administradores WeCare.</p>
+
+  <% if flash[:alert] %>
+    <p style="background:#fee2e2;color:#b91c1c;padding:10px;border-radius:8px;"><%= flash[:alert] %></p>
+  <% end %>
+
+  <%= button_to 'Entrar com Google', '/auth/google_oauth2', method: :post,
+        data: { turbo: false },
+        style: 'background:#0f172a;color:#fff;border:0;padding:12px 20px;border-radius:8px;cursor:pointer;font-size:15px;' %>
+
+  <% unless ENV['GOOGLE_CLIENT_ID'].present? %>
+    <p style="color:#92400e;background:#fef3c7;padding:10px;border-radius:8px;margin-top:20px;font-size:13px;">
+      OAuth não configurado. Em desenvolvimento o acesso é liberado automaticamente —
+      <a href="/">abrir dashboard</a>.
+    </p>
+  <% end %>
+</div>

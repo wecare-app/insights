@@ -1,0 +1,35 @@
+# Bundler
+/.bundle
+
+# Logs e temporários
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+
+# Active Storage local
+/storage/*
+!/storage/.keep
+
+# Assets compilados
+/public/assets
+/public/packs
+/public/packs-test
+/node_modules
+
+# CHAVE MESTRA das credentials — NUNCA versionar (o credentials.yml.enc, sim)
+/config/master.key
+
+# Variáveis de ambiente / segredos locais
+/.env
+/.env.*
+
+# Banco local (caso use sqlite em algum momento)
+/db/*.sqlite3
+/db/*.sqlite3-*
+
+.byebug_history
+.DS_Store

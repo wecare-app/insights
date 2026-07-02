@@ -1,0 +1,110 @@
+<div class="page-header">
+  <div class="eyebrow">WeCare</div>
+  <h1>Empresas</h1>
+  <div class="sub">Cadastre ambientes e habilite/desabilite empresas no dashboard e no MCP.</div>
+</div>
+
+<div class="section-title">Ambientes</div>
+
+<div class="card" style="background:#f0faf4;border-color:#c9edd7;margin-bottom:16px;">
+  <strong>Como preencher</strong> — um cadastro por ambiente do sistema WeCare (ex.: danone, einstein, shared), <b>não por empresa</b>:
+  <ol style="margin:10px 0 0;padding-left:20px;line-height:1.8;">
+    <li>Clique <b>Gerar</b> (no campo Senha) para criar a senha desse ambiente.</li>
+    <li>Peça ao time técnico para colocar <b>essa mesma senha</b> no ambiente (no Heroku, variável <code>INSIGHTS_API_TOKEN</code>).</li>
+    <li>Preencha nome e endereço, cole a senha e clique <b>Adicionar</b>.</li>
+    <li>Clique <b>Sincronizar empresas</b> — as empresas aparecem sozinhas. Você nunca cadastra empresa na mão.</li>
+  </ol>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <form id="envForm" class="filters" style="margin-bottom:0;">
+    <label>Nome
+      <input name="name" required placeholder="danone">
+      <small class="muted">apelido do ambiente (ex.: danone)</small>
+    </label>
+    <label>Endereço (URL)
+      <input name="base_url" required placeholder="https://danone.wecare.com.br" size="30">
+      <small class="muted">endereço do sistema WeCare desse ambiente</small>
+    </label>
+    <label>Tipo
+      <select name="db_type"><option value="dedicated">dedicado</option><option value="shared">compartilhado</option></select>
+      <small class="muted">dedicado = 1 empresa · compartilhado = várias</small>
+    </label>
+    <label>Senha
+      <span style="display:flex;gap:6px;">
+        <input name="token" id="tokenInput" required placeholder="clique em Gerar →" size="24">
+        <button type="button" class="btn btn-outline btn-sm" id="genToken">Gerar</button>
+      </span>
+      <small class="muted">a mesma senha usada no ambiente (Heroku)</small>
+    </label>
+    <button class="btn" type="submit">Adicionar</button>
+    <button class="btn btn-outline" type="button" id="syncBtn">Sincronizar empresas</button>
+  </form>
+</div>
+<table style="margin-bottom:28px;">
+  <thead><tr><th>Ambiente</th><th>Endereço</th><th>Tipo</th><th>Empresas</th><th>Ativo</th></tr></thead>
+  <tbody id="envRows"></tbody>
+</table>
+
+<div class="section-title">Empresas</div>
+<table>
+  <thead><tr><th>Empresa</th><th>Ambiente</th><th>ID</th><th>Última sync</th><th>Habilitada</th></tr></thead>
+  <tbody id="coRows"></tbody>
+</table>
+
+<script nonce="<%= content_security_policy_nonce %>">
+  const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+
+  async function loadEnvs() {
+    const res = await fetch('/environments', { headers: { Accept: 'application/json' } });
+    if (res.status === 401) { window.location = '/login'; return; }
+    const envs = await res.json();
+    document.getElementById('envRows').innerHTML = envs.map(e =>
+      `<tr><td>${esc(e.name)}</td><td class="muted">${esc(e.base_url)}</td><td>${esc(e.db_type)}</td><td>${esc(e.companies)}</td>
+       <td>${e.active ? '<span class="badge">ativo</span>' : '<span class="badge">inativo</span>'}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="muted">Nenhum ambiente cadastrado.</td></tr>';
+  }
+
+  async function loadCompanies() {
+    const res = await fetch('/client_companies', { headers: { Accept: 'application/json' } });
+    const cos = await res.json();
+    document.getElementById('coRows').innerHTML = cos.map(c =>
+      `<tr><td>${esc(c.name)}</td><td class="muted">${esc(c.environment)}</td><td class="muted">${esc(c.wecare_id)}</td>
+       <td class="muted">${c.last_synced_at ? new Date(c.last_synced_at).toLocaleString('pt-BR') : '—'}</td>
+       <td><label class="switch"><input type="checkbox" data-id="${esc(c.id)}" ${c.active ? 'checked' : ''}><span class="slider"></span></label></td></tr>`).join('')
+      || '<tr><td colspan="5" class="muted">Nenhuma empresa. Cadastre um ambiente e sincronize.</td></tr>';
+
+    document.querySelectorAll('#coRows input[type=checkbox]').forEach(cb => cb.addEventListener('change', async () => {
+      await fetch(`/client_companies/${cb.dataset.id}/toggle`, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() } });
+    }));
+  }
+
+  document.getElementById('envForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const body = new URLSearchParams(new FormData(ev.target));
+    const res = await fetch('/environments', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() }, body });
+    if (res.ok) { ev.target.reset(); loadEnvs(); }
+    else { const j = await res.json().catch(() => ({})); alert('Erro: ' + (j.errors || []).join(', ')); }
+  });
+
+  document.getElementById('syncBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('syncBtn');
+    btn.textContent = 'Sincronizando…'; btn.disabled = true;
+    await fetch('/environments/sync', { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() } });
+    btn.textContent = 'Sincronizar empresas'; btn.disabled = false;
+    loadEnvs(); loadCompanies();
+  });
+
+  document.getElementById('genToken').addEventListener('click', () => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    const value = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    document.getElementById('tokenInput').value = value;
+    navigator.clipboard?.writeText(value).catch(() => {});
+    alert('Senha gerada e copiada!\n\nUse esta MESMA senha no ambiente (no Heroku, na variável INSIGHTS_API_TOKEN):\n\n' + value);
+  });
+
+  loadEnvs();
+  loadCompanies();
+</script>

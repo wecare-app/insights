@@ -1,0 +1,478 @@
+<div class="page-header">
+  <div class="eyebrow">WeCare</div>
+  <h1>Insights</h1>
+  <div class="sub">Visão unificada de reconhecimentos, acessos e resgates dos clientes.</div>
+</div>
+
+<div class="filters">
+  <label>Período
+    <select id="preset">
+      <option value="today">Hoje</option>
+      <option value="yesterday">Ontem</option>
+      <option value="this_week">Esta semana</option>
+      <option value="last_week">Semana passada</option>
+      <option value="this_month" selected>Este mês</option>
+      <option value="last_month">Mês passado</option>
+      <option value="this_quarter">Este trimestre</option>
+      <option value="last_quarter">Trimestre passado</option>
+      <option value="this_semester">Este semestre</option>
+      <option value="last_semester">Semestre passado</option>
+      <option value="this_year">Este ano</option>
+      <option value="last_year">Ano passado</option>
+      <option value="all">Todo o período</option>
+      <option value="custom">Personalizado</option>
+    </select>
+  </label>
+  <label>Início <input type="date" id="start"></label>
+  <label>Fim <input type="date" id="end"></label>
+  <label>Empresas
+    <div class="ms" id="ms">
+      <button type="button" class="ms__toggle" id="msToggle">Todas as empresas</button>
+      <div class="ms__panel" id="msPanel"></div>
+    </div>
+  </label>
+  <button class="btn" id="apply">Atualizar</button>
+</div>
+
+<div class="tabs" id="tabs">
+  <button data-tab="overview" class="active">Visão Geral</button>
+  <button data-tab="recognitions">Reconhecimentos</button>
+  <button data-tab="accesses">Acessos</button>
+  <button data-tab="redemptions">Resgates</button>
+  <button data-tab="engagement">Engajamento</button>
+  <button data-tab="client">Cliente</button>
+  <button data-tab="benchmark">Benchmark</button>
+</div>
+
+<div id="content"><p class="muted">Carregando…</p></div>
+
+<script nonce="<%= content_security_policy_nonce %>">
+  const PALETTE = ['#E7326B','#7D43FF','#2B7FF4','#34DFE0','#9AF0C7','#4FB26B','#F7D655','#F07C39','#E94044','#413BC2'];
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  const fmt = (n) => (Number(n) || 0).toLocaleString('pt-BR');
+  const fmtBRL = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  let OVERVIEW = null;
+  let CURRENT_TAB = 'overview';
+  let CHARTS = [];
+  let SELECTED = [];
+
+  function clients() {
+    return (OVERVIEW?.per_client || []);
+  }
+  function ok(list) { return list.filter(c => c.data); }
+  function sumBy(path) {
+    return ok(clients()).reduce((acc, c) => acc + (Number(path(c.data)) || 0), 0);
+  }
+  function destroyCharts() { CHARTS.forEach(c => c.destroy()); CHARTS = []; }
+
+  function kpi(label, value, tip) {
+    const info = tip ? ` <span class="info" title="${tip}">i</span>` : '';
+    return `<div class="kpi"><div class="label">${label}${info}</div><div class="value">${value}</div></div>`;
+  }
+  function kpis(items) {
+    return `<div class="grid kpis">${items.map(([l, v, tip]) => kpi(l, v, tip)).join('')}</div>`;
+  }
+  function barChart(canvasId, label, labels, data, colorIdx = 2) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    CHARTS.push(new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label, data, backgroundColor: PALETTE[colorIdx], borderRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    }));
+  }
+  function pieChart(canvasId, labels, data) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    CHARTS.push(new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: PALETTE }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+    }));
+  }
+
+  function errorsBanner() {
+    const errs = OVERVIEW?.clients_with_errors || [];
+    if (!errs.length) return '';
+    return `<div class="card" style="border-left:4px solid var(--danger);margin-bottom:16px;">
+      <span class="err">Ambientes com erro: ${errs.map(esc).join(', ')}</span></div>`;
+  }
+
+  function renderOverview() {
+    const t = OVERVIEW.totals || {};
+    const html = errorsBanner() + kpis([
+      ['Saldo dos clientes (R$)', fmtBRL(t.balance_brl), 'Saldo ainda não gasto, somando todos os clientes. Se a empresa usa créditos: valor em R$. Se usa pontos: (saldo da empresa + saldo pessoal + saldo para reconhecer de cada colaborador) × valor do ponto.'],
+      ['Reconhecimentos', fmt(t.recognitions_count), 'Reconhecimentos entre pares (360) enviados no período.'],
+      ['Pontos distribuídos em reconhecimentos', fmt(t.distributed_points), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal nem pontos comprados.'],
+      ['Usuários ativos', fmt(t.active_users), 'Colaboradores com status "ativo".'],
+      ['Logins', fmt(t.successful_logins), 'Logins bem-sucedidos no período.'],
+      ['Resgates', fmt(t.total_redemptions), 'Trocas de recompensas (pedidos) feitas no período.'],
+      ['Total resgatado (R$)', fmtBRL(t.total_brl), 'Valor em reais das trocas no marketplace WeCare no período.'],
+    ]) + `
+      <div class="section-title">Usuários ativos por cliente</div>
+      <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
+      <div class="section-title">Por cliente <span class="muted" style="font-weight:400;font-size:13px;">(visão individual)</span></div>
+      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>Status</th></tr></thead>
+      <tbody>${clients().map(c => {
+        const d = c.data || {};
+        const st = c.error ? `<span class="err">${esc(c.error)}</span>` : '<span class="badge">ok</span>';
+        return `<tr><td>${esc(c.client)}</td><td>${d.balances ? fmtBRL(d.balances.total_brl) : '—'}</td>
+          <td>${fmt(d.recognitions?.metrics?.recognitions_count)}</td>
+          <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.successful_logins)}</td>
+          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${st}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    document.getElementById('content').innerHTML = html;
+    barChart('c1', 'Usuários ativos', ok(clients()).map(c => c.client), ok(clients()).map(c => c.data.accesses?.metrics?.active_users || 0), 3);
+  }
+
+  function renderRecognitions() {
+    const html = kpis([
+      ['Participantes', fmt(sumBy(d => d.recognitions?.metrics?.participants)), 'Colaboradores participantes do programa de reconhecimento.'],
+      ['Reconhecedores', fmt(sumBy(d => d.recognitions?.metrics?.senders)), 'Colaboradores que enviaram ao menos 1 reconhecimento no período.'],
+      ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares (360) enviados no período.'],
+      ['Pontos distribuídos em reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.distributed_points)), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal.'],
+      ['Curtidas', fmt(sumBy(d => d.recognitions?.metrics?.likes)), 'Curtidas nos reconhecimentos no período.'],
+      ['Comentários', fmt(sumBy(d => d.recognitions?.metrics?.comments)), 'Comentários nos reconhecimentos no período.'],
+    ]) + `
+      <div class="section-title">Reconhecimentos por cliente</div>
+      <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
+      <div class="section-title">Pontos distribuídos por cliente</div>
+      <div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div>`;
+    document.getElementById('content').innerHTML = html;
+    const cs = ok(clients());
+    barChart('c1', 'Reconhecimentos', cs.map(c => c.client), cs.map(c => c.data.recognitions?.metrics?.recognitions_count || 0), 0);
+    barChart('c2', 'Pontos', cs.map(c => c.client), cs.map(c => c.data.recognitions?.metrics?.distributed_points || 0), 1);
+  }
+
+  function hourlyTotals() {
+    const totals = Array(24).fill(0);
+    ok(clients()).forEach(c => {
+      const bh = c.data.accesses?.metrics?.by_hour_of_day || {};
+      for (let h = 0; h < 24; h++) totals[h] += Number(bh[h] ?? bh[String(h)]) || 0;
+    });
+    return totals;
+  }
+
+  function renderAccesses() {
+    const totals = hourlyTotals();
+    const peak = totals.indexOf(Math.max(...totals));
+    const html = kpis([
+      ['Total de usuários', fmt(sumBy(d => d.accesses?.metrics?.total_users)), 'Colaboradores cadastrados (não descartados).'],
+      ['Usuários ativos', fmt(sumBy(d => d.accesses?.metrics?.active_users)), 'Colaboradores com status "ativo".'],
+      ['Logins', fmt(sumBy(d => d.accesses?.metrics?.successful_logins)), 'Total de logins bem-sucedidos no período.'],
+      ['Logins com falha', fmt(sumBy(d => d.accesses?.metrics?.failed_logins)), 'Tentativas de login malsucedidas (útil para detectar problema de SSO/senha).'],
+      ['Usuários únicos com acesso', fmt(sumBy(d => d.accesses?.metrics?.unique_users_logged)), 'Colaboradores distintos que acessaram ao menos uma vez no período.'],
+      ['Horário de pico', totals.some(t => t > 0) ? `${peak}h` : '—', 'Hora do dia com mais logins somando todos os clientes.'],
+    ]) + `
+      <div class="section-title">Pico de acessos por hora <span class="muted" style="font-weight:400;font-size:13px;">(visão de infraestrutura/dev)</span></div>
+      <div class="card"><div class="chart-wrap"><canvas id="c3"></canvas></div></div>
+      <div class="section-title">Usuários ativos por cliente</div>
+      <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
+      <div class="section-title">Logins por cliente</div>
+      <div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div>`;
+    document.getElementById('content').innerHTML = html;
+    barChart('c3', 'Logins', Array.from({ length: 24 }, (_, h) => `${h}h`), totals, 2);
+    const cs = ok(clients());
+    barChart('c1', 'Ativos', cs.map(c => c.client), cs.map(c => c.data.accesses?.metrics?.active_users || 0), 3);
+    barChart('c2', 'Logins', cs.map(c => c.client), cs.map(c => c.data.accesses?.metrics?.successful_logins || 0), 4);
+  }
+
+  function renderEngagement() {
+    const html = kpis([
+      ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares no período.'],
+      ['Reconhecimento da empresa (pontos)', fmt(sumBy(d => d.gratitudes?.metrics?.points_total)), 'Pontos distribuídos pela empresa/gestores aos colaboradores.'],
+      ['Feedbacks', fmt(sumBy(d => d.feedbacks?.metrics?.total)), 'Feedbacks trocados no período.'],
+      ['1:1 realizados', fmt(sumBy(d => d.one_on_ones?.metrics?.done)), 'Reuniões 1:1 marcadas como realizadas.'],
+      ['Avaliações de skill', fmt(sumBy(d => d.skill_evaluations?.metrics?.total)), 'Avaliações de competências submetidas.'],
+      ['Avaliação de performance', fmt(sumBy(d => d.outcome_evaluations?.metrics?.total)), 'Avaliações de performance submetidas.'],
+      ['Conquistas', fmt(sumBy(d => d.achievements?.metrics?.total)), 'Badges concedidos no período.'],
+      ['Curtidas no feed', fmt(sumBy(d => d.social?.metrics?.likes_total)), 'Curtidas em posts do feed social.'],
+    ]) + `
+      <div class="section-title">Volume por funcionalidade</div>
+      <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>`;
+    document.getElementById('content').innerHTML = html;
+    const labels = ['Reconhec.', 'Feedbacks', '1:1', 'Aval. skill', 'Aval. perf.', 'Conquistas'];
+    const data = [
+      sumBy(d => d.recognitions?.metrics?.recognitions_count),
+      sumBy(d => d.feedbacks?.metrics?.total),
+      sumBy(d => d.one_on_ones?.metrics?.done),
+      sumBy(d => d.skill_evaluations?.metrics?.total),
+      sumBy(d => d.outcome_evaluations?.metrics?.total),
+      sumBy(d => d.achievements?.metrics?.total),
+    ];
+    barChart('c1', 'Volume', labels, data, 1);
+  }
+
+  function renderRedemptions() {
+    const byType = {};
+    ok(clients()).forEach(c => {
+      const bt = c.data.redemptions?.metrics?.by_type || {};
+      Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
+    });
+    const html = kpis([
+      ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.'],
+      ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.'],
+      ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.'],
+    ]) + `
+      <div class="grid" style="grid-template-columns:1fr 2fr;align-items:start;">
+        <div><div class="section-title">Por tipo</div><div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div></div>
+        <div><div class="section-title">Resgates por cliente</div><div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div></div>
+      </div>`;
+    document.getElementById('content').innerHTML = html;
+    pieChart('c1', Object.keys(byType), Object.values(byType));
+    const cs = ok(clients());
+    barChart('c2', 'Resgates', cs.map(c => c.client), cs.map(c => c.data.redemptions?.metrics?.total_redemptions || 0), 6);
+  }
+
+  const PORTE_ORDER = ['1-50', '51-200', '201-500', '500+'];
+  const BENCHMARK_METRICS = {
+    recognitions_count: { label: 'Reconhecimentos', fmt, val: d => d.recognitions?.metrics?.recognitions_count },
+    active_users:       { label: 'Usuários ativos', fmt, val: d => d.accesses?.metrics?.active_users },
+    successful_logins:  { label: 'Logins', fmt, val: d => d.accesses?.metrics?.successful_logins },
+    total_redemptions:  { label: 'Resgates', fmt, val: d => d.redemptions?.metrics?.total_redemptions },
+    redeemed_brl:       { label: 'Resgatado (R$)', fmt: fmtBRL, val: d => d.redemptions?.metrics?.total_brl },
+    balance_brl:        { label: 'Saldo (R$)', fmt: fmtBRL, val: d => d.balances?.total_brl }
+  };
+  let BENCHMARK = null;
+  let BENCHMARK_COMPARE = '';
+
+  async function renderBenchmark() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<p class="muted">Carregando benchmark…</p>';
+    const qs = new URLSearchParams();
+    const s = document.getElementById('start').value, e = document.getElementById('end').value;
+    if (s) qs.set('start_date', s);
+    if (e) qs.set('end_date', e);
+    const res = await fetch('/api/benchmark?' + qs.toString(), { headers: { Accept: 'application/json' } });
+    if (res.status === 401) { window.location = '/login'; return; }
+    BENCHMARK = await res.json();
+    renderBenchmarkBody();
+  }
+
+  function benchmarkSelector() {
+    const opts = ['<option value="">— visão geral por porte —</option>'].concat(
+      clients().filter(c => c.data).map(c =>
+        `<option value="${esc(c.wecare_id)}" ${c.wecare_id === BENCHMARK_COMPARE ? 'selected' : ''}>${esc(c.client)}</option>`)
+    ).join('');
+    return `<div class="filters"><label>Comparar cliente
+      <select id="benchCompare" style="min-width:280px;">${opts}</select></label></div>`;
+  }
+
+  function renderBenchmarkBody() {
+    const content = document.getElementById('content');
+    const buckets = (BENCHMARK && BENCHMARK.buckets) || {};
+    const portes = PORTE_ORDER.filter(p => buckets[p]);
+    const client = clients().find(c => c.wecare_id === BENCHMARK_COMPARE && c.data);
+
+    let body;
+    if (!portes.length) body = '<p class="muted">Sem dados de benchmark.</p>';
+    else if (client) body = benchmarkComparison(client, buckets);
+    else body = benchmarkTable(buckets, portes);
+
+    content.innerHTML = benchmarkSelector() + body;
+    const sel = document.getElementById('benchCompare');
+    if (sel) sel.addEventListener('change', (ev) => { BENCHMARK_COMPARE = ev.target.value; renderBenchmarkBody(); });
+  }
+
+  function benchmarkTable(buckets, portes) {
+    const keys = Object.keys(BENCHMARK_METRICS);
+    const cell = (m, f) => m
+      ? `<span title="Metade das empresas deste porte ficam entre ${f(m.p25)} e ${f(m.p75)}">${f(m.median)}</span>`
+      : '—';
+    let html = `<div class="section-title">Benchmark por porte</div>
+      <p class="muted" style="margin:-6px 0 12px;font-size:13px;">Cada valor é a <strong>mediana</strong> das empresas do porte — o valor do meio, metade fica acima e metade abaixo. Passe o mouse sobre um número para ver a faixa comum. Para comparar um cliente com o seu grupo, selecione-o acima.</p>`;
+    html += '<table><thead><tr><th>Porte</th><th>Empresas</th>' +
+      keys.map(k => `<th>${BENCHMARK_METRICS[k].label}</th>`).join('') + '</tr></thead><tbody>';
+    html += portes.map(p => `<tr><td><strong>${esc(p)}</strong></td><td>${buckets[p].companies}</td>` +
+      keys.map(k => `<td>${cell(buckets[p].metrics?.[k], BENCHMARK_METRICS[k].fmt)}</td>`).join('') + '</tr>').join('');
+    return html + '</tbody></table>';
+  }
+
+  function benchmarkComparison(client, buckets) {
+    const porte = client.data.company_profile?.porte;
+    const b = buckets[porte];
+    if (!b) return `<div class="card"><span class="muted">Sem grupo de benchmark para o porte deste cliente (${esc(porte || '—')}).</span></div>`;
+
+    const rows = Object.entries(BENCHMARK_METRICS).map(([k, meta]) => {
+      const m = b.metrics?.[k], f = meta.fmt;
+      const v = Number(meta.val(client.data)) || 0;
+      let badge = '<span class="badge">—</span>';
+      if (m) {
+        if (v > m.p75) badge = '<span class="badge" style="background:#e6f7ef;color:#1c9379;">▲ acima da maioria</span>';
+        else if (v < m.p25) badge = '<span class="badge" style="background:#fdecec;color:#c0392b;">▼ abaixo da maioria</span>';
+        else badge = '<span class="badge">na média do grupo</span>';
+      }
+      const median = m ? f(m.median) : '—';
+      const range = m ? `${f(m.p25)} a ${f(m.p75)}` : '—';
+      return `<tr><td>${meta.label}</td><td><strong>${f(v)}</strong></td><td>${median}</td><td class="muted">${range}</td><td>${badge}</td></tr>`;
+    }).join('');
+
+    return `<div class="section-title">${esc(client.client)}
+      <span class="muted" style="font-weight:400;font-size:13px;">vs. empresas do porte ${esc(porte)} (${b.companies} no grupo)</span></div>
+      <table><thead><tr>
+        <th>Métrica</th><th>Este cliente</th><th>Mediana do porte</th>
+        <th>Faixa comum <span class="muted" style="font-weight:400;">(50% das empresas)</span></th><th>Situação</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <p class="muted" style="margin-top:10px;font-size:13px;">A <strong>faixa comum</strong> é onde está metade das empresas do mesmo porte. Ficar acima ou abaixo dela é o que sinaliza que o cliente se destaca — para cima ou para baixo.</p>`;
+  }
+
+  let SELECTED_CLIENT = null;
+
+  function renderClient() {
+    const content = document.getElementById('content');
+    const cs = clients();
+    if (!cs.length) { content.innerHTML = '<p class="muted">Nenhum cliente.</p>'; return; }
+
+    if (!SELECTED_CLIENT || !cs.find(c => c.wecare_id === SELECTED_CLIENT)) {
+      SELECTED_CLIENT = cs[0].wecare_id;
+    }
+    const c = cs.find(x => x.wecare_id === SELECTED_CLIENT);
+    const options = cs.map(x =>
+      `<option value="${esc(x.wecare_id)}" ${x.wecare_id === SELECTED_CLIENT ? 'selected' : ''}>${esc(x.client)}</option>`).join('');
+
+    let html = `<div class="filters"><label>Cliente
+      <select id="clientSelect" style="min-width:260px;">${options}</select></label></div>`;
+
+    if (c.error || !c.data) {
+      html += `<div class="card"><span class="err">${esc(c.error || 'Sem dados para este cliente.')}</span></div>`;
+      content.innerHTML = html;
+      document.getElementById('clientSelect').addEventListener('change', (ev) => { SELECTED_CLIENT = ev.target.value; renderClient(); });
+      return;
+    }
+
+    const d = c.data;
+    const p = d.company_profile || {};
+    const r = p.responsible || {};
+    const sub = p.subscription || {};
+    const chip = (t) => `<span class="badge" style="margin:2px;">${esc(t)}</span>`;
+    const features = (p.features_enabled || []).map(chip).join('') || '<span class="muted">nenhuma</span>';
+
+    html += kpis([
+      ['Saldo do cliente (R$)', fmtBRL(d.balances?.total_brl), 'Saldo não gasto (pontos ou créditos convertidos em R$).'],
+      ['Colaboradores', `${fmt(p.users_active)} / ${fmt(p.users_total)}`, 'Ativos / total.'],
+      ['Porte', esc(p.porte || '—'), 'Faixa por nº de colaboradores.'],
+      ['Modelo de pontos', esc(p.modality || '—'), 'points = pré-pago em pontos; credits = créditos em R$.'],
+      ['Reconhecimentos', fmt(d.recognitions?.metrics?.recognitions_count), 'No período.'],
+      ['Resgates', fmt(d.redemptions?.metrics?.total_redemptions), 'No período.'],
+    ]);
+
+    html += `
+      <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start;margin-top:8px;">
+        <div class="card">
+          <div class="section-title" style="margin-top:0;">Perfil</div>
+          <table><tbody>
+            <tr><td class="muted">Nome</td><td>${esc(p.fantasy_name || c.client)}</td></tr>
+            <tr><td class="muted">Status</td><td>${esc(p.status || '—')}</td></tr>
+            <tr><td class="muted">Trial</td><td>${p.trial ? 'sim' : 'não'}</td></tr>
+            <tr><td class="muted">Idiomas</td><td>${esc((p.languages || []).join(', ') || '—')}</td></tr>
+            <tr><td class="muted">Custo por usuário</td><td>${fmtBRL(sub.cost_per_user)}</td></tr>
+            <tr><td class="muted">Custo assinatura</td><td>${fmtBRL(sub.subscription_cost)}</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card">
+          <div class="section-title" style="margin-top:0;">Responsável</div>
+          <table><tbody>
+            <tr><td class="muted">Nome</td><td>${esc(r.name || '—')}</td></tr>
+            <tr><td class="muted">E-mail</td><td>${esc(r.email || '—')}</td></tr>
+            <tr><td class="muted">Telefone</td><td>${esc(r.telephone || '—')}</td></tr>
+          </tbody></table>
+          <div class="section-title">Funcionalidades ativas</div>
+          <div>${features}</div>
+        </div>
+      </div>`;
+
+    content.innerHTML = html;
+    document.getElementById('clientSelect').addEventListener('change', (ev) => { SELECTED_CLIENT = ev.target.value; renderClient(); });
+  }
+
+  function render() {
+    destroyCharts();
+    if (CURRENT_TAB === 'benchmark') { renderBenchmark(); return; }
+    if (!OVERVIEW) { document.getElementById('content').innerHTML = '<p class="muted">Carregando…</p>'; return; }
+    ({ overview: renderOverview, recognitions: renderRecognitions, accesses: renderAccesses,
+       redemptions: renderRedemptions, engagement: renderEngagement, client: renderClient }[CURRENT_TAB])();
+  }
+
+  async function loadOverview() {
+    const qs = new URLSearchParams();
+    const s = document.getElementById('start').value, e = document.getElementById('end').value;
+    if (s) qs.set('start_date', s);
+    if (e) qs.set('end_date', e);
+    if (SELECTED.length) qs.set('companies', SELECTED.join(','));
+    document.getElementById('content').innerHTML = '<p class="muted">Carregando…</p>';
+    const res = await fetch('/api/overview?' + qs.toString(), { headers: { Accept: 'application/json' } });
+    if (res.status === 401) { window.location = '/login'; return; }
+    OVERVIEW = await res.json();
+    render();
+  }
+
+  async function loadCompaniesFilter() {
+    const res = await fetch('/client_companies', { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const companies = (await res.json()).filter(c => c.active);
+    const panel = document.getElementById('msPanel');
+    panel.innerHTML = companies.map(c =>
+      `<label><input type="checkbox" value="${esc(c.wecare_id)}"> ${esc(c.name)}</label>`).join('') || '<div class="muted" style="padding:8px;">Nenhuma empresa</div>';
+    panel.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => {
+      SELECTED = [...panel.querySelectorAll('input:checked')].map(i => i.value);
+      const t = document.getElementById('msToggle');
+      t.textContent = SELECTED.length ? `${SELECTED.length} empresa(s)` : 'Todas as empresas';
+    }));
+  }
+
+  document.getElementById('tabs').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button'); if (!btn) return;
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    CURRENT_TAB = btn.dataset.tab;
+    render();
+  });
+  document.getElementById('msToggle').addEventListener('click', () => document.getElementById('ms').classList.toggle('open'));
+  document.addEventListener('click', (e) => { if (!document.getElementById('ms').contains(e.target)) document.getElementById('ms').classList.remove('open'); });
+  document.getElementById('apply').addEventListener('click', loadOverview);
+
+  const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  function presetRange(key) {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth(), day = now.getDate();
+    const mk = (yy, mm, dd) => new Date(yy, mm, dd);
+    let s, e;
+    switch (key) {
+      case 'today': s = mk(y, m, day); e = s; break;
+      case 'yesterday': s = mk(y, m, day - 1); e = s; break;
+      case 'this_week': { const wd = (now.getDay() + 6) % 7; s = mk(y, m, day - wd); e = mk(y, m, day); break; }
+      case 'last_week': { const wd = (now.getDay() + 6) % 7; s = mk(y, m, day - wd - 7); e = mk(y, m, day - wd - 1); break; }
+      case 'this_month': s = mk(y, m, 1); e = mk(y, m, day); break;
+      case 'last_month': s = mk(y, m - 1, 1); e = mk(y, m, 0); break;
+      case 'this_quarter': { const q = Math.floor(m / 3); s = mk(y, q * 3, 1); e = mk(y, m, day); break; }
+      case 'last_quarter': { const q = Math.floor(m / 3); s = mk(y, q * 3 - 3, 1); e = mk(y, q * 3, 0); break; }
+      case 'this_semester': { const sem = m < 6 ? 0 : 6; s = mk(y, sem, 1); e = mk(y, m, day); break; }
+      case 'last_semester': { const first = m < 6; s = mk(first ? y - 1 : y, first ? 6 : 0, 1); e = mk(first ? y - 1 : y, first ? 12 : 6, 0); break; }
+      case 'this_year': s = mk(y, 0, 1); e = mk(y, m, day); break;
+      case 'last_year': s = mk(y - 1, 0, 1); e = mk(y - 1, 11, 31); break;
+      case 'all': s = mk(2000, 0, 1); e = mk(y, m, day); break;
+      default: return null;
+    }
+    return { start: isoDate(s), end: isoDate(e) };
+  }
+
+  function applyPreset(load) {
+    const r = presetRange(document.getElementById('preset').value);
+    if (r) {
+      document.getElementById('start').value = r.start;
+      document.getElementById('end').value = r.end;
+    }
+    if (load) loadOverview();
+  }
+
+  document.getElementById('preset').addEventListener('change', () => applyPreset(true));
+  ['start', 'end'].forEach((id) => document.getElementById(id).addEventListener('change', () => {
+    document.getElementById('preset').value = 'custom';
+  }));
+
+  applyPreset(false);
+  loadCompaniesFilter();
+  loadOverview();
+</script>
