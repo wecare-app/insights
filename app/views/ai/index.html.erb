@@ -14,10 +14,17 @@
   <ol style="margin:0;padding-left:20px;line-height:1.9;">
     <li>No Claude, clique no botão de anexar (+), vá em <b>Connectors</b> e depois <b>Add custom connector</b>.</li>
     <li><b>Name:</b> WeCare Insights</li>
-    <li><b>Remote MCP server URL:</b> <code>https://SEU-APP.herokuapp.com/mcp?key=SEU_TOKEN</code></li>
+    <li><b>Remote MCP server URL:</b> copie o endereço abaixo.</li>
     <li>Deixe os campos de OAuth em branco e clique <b>Add</b>.</li>
   </ol>
-  <p class="muted" style="margin:12px 0 0;">A URL completa (com o token) é definida pelo time técnico na variável <code>MCP_TOKEN</code>. Peça a eles o endereço pronto. Depois de conectar, é só perguntar; ferramentas disponíveis: listar clientes, visão geral, benchmark por porte e dados de um cliente.</p>
+  <% if @mcp_url %>
+    <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin:12px 0 0;overflow:auto;font-size:13px;"><%= @mcp_url %></pre>
+    <p class="muted" style="margin:8px 0 0;">Essa URL contém a senha de acesso; trate como confidencial. Ferramentas disponíveis: listar clientes, visão geral, benchmark por porte e dados de um cliente.</p>
+  <% else %>
+    <p class="muted" style="margin:12px 0 0;">A URL de conexão aparece aqui quando o time técnico define a variável <code>MCP_TOKEN</code> no servidor.</p>
+  <% end %>
+
+  <p class="muted" style="margin:12px 0 0;"><b>ChatGPT:</b> também suporta connectors MCP (no modo desenvolvedor / planos Business, Enterprise e Pro). A mesma URL acima funciona lá. Se a sua conta não tiver essa opção, use a Opção 2.</p>
 </div>
 
 <div class="section-title">Opção 2: copiar e colar</div>
