@@ -406,17 +406,30 @@
     render();
   }
 
+  function syncSelected() {
+    const panel = document.getElementById('msPanel');
+    SELECTED = [...panel.querySelectorAll('input:checked')].map(i => i.value);
+    document.getElementById('msToggle').textContent = SELECTED.length ? `${SELECTED.length} empresa(s)` : 'Todas as empresas';
+  }
+
   async function loadCompaniesFilter() {
     const res = await fetch('/client_companies', { headers: { Accept: 'application/json' } });
     if (!res.ok) return;
     const companies = (await res.json()).filter(c => c.active);
     const panel = document.getElementById('msPanel');
-    panel.innerHTML = companies.map(c =>
-      `<label><input type="checkbox" value="${esc(c.wecare_id)}"> ${esc(c.name)}</label>`).join('') || '<div class="muted" style="padding:8px;">Nenhuma empresa</div>';
-    panel.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => {
-      SELECTED = [...panel.querySelectorAll('input:checked')].map(i => i.value);
-      const t = document.getElementById('msToggle');
-      t.textContent = SELECTED.length ? `${SELECTED.length} empresa(s)` : 'Todas as empresas';
+    if (!companies.length) { panel.innerHTML = '<div class="muted" style="padding:8px;">Nenhuma empresa</div>'; return; }
+
+    panel.innerHTML = `<div class="ms__actions">
+        <button type="button" data-all="1">Selecionar tudo</button>
+        <button type="button" data-all="0">Remover tudo</button>
+      </div>` + companies.map(c =>
+      `<label><input type="checkbox" value="${esc(c.wecare_id)}"> ${esc(c.name)}</label>`).join('');
+
+    panel.querySelectorAll('input').forEach(cb => cb.addEventListener('change', syncSelected));
+    panel.querySelectorAll('button[data-all]').forEach(b => b.addEventListener('click', () => {
+      const on = b.dataset.all === '1';
+      panel.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = on; });
+      syncSelected();
     }));
   }
 
