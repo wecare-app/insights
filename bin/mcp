@@ -4,90 +4,9 @@
 require_relative '../config/environment'
 require 'json'
 
-TOOLS = [
-  {
-    name: 'list_clients',
-    description: 'Lista as empresas-clientes ativas (nome, wecare_id, ambiente). Sem dados pessoais.',
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
-  },
-  {
-    name: 'get_overview',
-    description: 'Visão geral agregada de todos os clientes ativos no período. Datas YYYY-MM-DD (padrão = mês corrente).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        start_date: { type: 'string', description: 'YYYY-MM-DD' },
-        end_date: { type: 'string', description: 'YYYY-MM-DD' }
-      },
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'get_benchmark_by_porte',
-    description: 'Benchmark entre clientes por faixa de porte (nº de colaboradores): mediana/p25/p75 dos big numbers. Agregado — faixas com menos de 5 empresas são suprimidas, nunca expõe um cliente individual. Datas YYYY-MM-DD.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        start_date: { type: 'string', description: 'YYYY-MM-DD' },
-        end_date: { type: 'string', description: 'YYYY-MM-DD' }
-      },
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'get_analytics_by_client_name',
-    description: 'Analytics unificados (métricas + listas anonimizadas) de um cliente pelo nome. Datas YYYY-MM-DD.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        client_name: { type: 'string' },
-        start_date: { type: 'string' },
-        end_date: { type: 'string' },
-        sections: { type: 'string', description: 'ex.: recognitions,redemptions' },
-        fields: { type: 'string', description: 'ex.: users.list' }
-      },
-      required: ['client_name'],
-      additionalProperties: false
-    }
-  }
-].freeze
-
 def emit(payload)
   $stdout.puts(JSON.generate(payload))
   $stdout.flush
-end
-
-def respond(id, result)
-  emit(jsonrpc: '2.0', id: id, result: result) unless id.nil?
-end
-
-def text_result(data)
-  { content: [{ type: 'text', text: JSON.pretty_generate(data) }] }
-end
-
-def params_from(args)
-  args.slice('start_date', 'end_date', 'sections', 'fields', 'limit').symbolize_keys.compact
-end
-
-def call_tool(name, args)
-  case name
-  when 'list_clients'
-    clients = Insights::Analytics.active_companies.map do |c|
-      { name: c.name, wecare_id: c.wecare_id, environment: c.environment.name }
-    end
-    text_result(clients)
-  when 'get_overview'
-    text_result(Insights::Analytics.overview(params_from(args)))
-  when 'get_benchmark_by_porte'
-    text_result(Insights::Benchmark.by_porte(params_from(args)))
-  when 'get_analytics_by_client_name'
-    company = Insights::Analytics.find_company(args['client_name'])
-    return text_result({ error: 'client not found' }) unless company
-
-    text_result(Insights::Analytics.company_analytics(company, params_from(args)).merge('client' => company.name))
-  else
-    raise "unknown tool: #{name}"
-  end
 end
 
 $stdin.each_line do |line|
@@ -100,26 +19,6 @@ $stdin.each_line do |line|
     next
   end
 
-  id = message['id']
-
-  case message['method']
-  when 'initialize'
-    respond(id, {
-      protocolVersion: '2024-11-05',
-      capabilities: { tools: {} },
-      serverInfo: { name: 'wecare-insights', version: '0.1.0' }
-    })
-  when 'notifications/initialized', 'notifications/cancelled'
-  when 'tools/list'
-    respond(id, { tools: TOOLS })
-  when 'tools/call'
-    params = message['params'] || {}
-    begin
-      respond(id, call_tool(params['name'], params['arguments'] || {}))
-    rescue StandardError => e
-      respond(id, { isError: true, content: [{ type: 'text', text: e.message }] })
-    end
-  else
-    emit(jsonrpc: '2.0', id: id, error: { code: -32_601, message: "method not found: #{message['method']}" }) unless id.nil?
-  end
+  response = Insights::Mcp.handle(message)
+  emit(response) unless response.nil?
 end

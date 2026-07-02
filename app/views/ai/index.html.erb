@@ -5,15 +5,28 @@
 </div>
 
 <div class="card" style="margin-bottom:20px;">
-  <p style="margin:0;">Os dados desta ferramenta são anonimizados (sem nome, e-mail ou CPF). Você pode copiá-los e pedir para uma IA analisar, cruzar informações e sugerir ações que nenhum gráfico fixo mostra.</p>
+  <p style="margin:0;">Os dados desta ferramenta são anonimizados (sem nome, e-mail ou CPF). Você pode pedir para uma IA analisar, cruzar informações e sugerir ações que nenhum gráfico fixo mostra.</p>
 </div>
 
-<div class="section-title">Como usar</div>
+<div class="section-title">Opção 1: conectar o Claude (recomendado)</div>
 <div class="card" style="margin-bottom:20px;">
+  <p style="margin:0 0 10px;">No Claude (claude.ai) dá para conectar esta ferramenta como um "connector". Aí o Claude consulta os dados ao vivo, sem você copiar e colar nada.</p>
+  <ol style="margin:0;padding-left:20px;line-height:1.9;">
+    <li>No Claude, clique no botão de anexar (+), vá em <b>Connectors</b> e depois <b>Add custom connector</b>.</li>
+    <li><b>Name:</b> WeCare Insights</li>
+    <li><b>Remote MCP server URL:</b> <code>https://SEU-APP.herokuapp.com/mcp?key=SEU_TOKEN</code></li>
+    <li>Deixe os campos de OAuth em branco e clique <b>Add</b>.</li>
+  </ol>
+  <p class="muted" style="margin:12px 0 0;">A URL completa (com o token) é definida pelo time técnico na variável <code>MCP_TOKEN</code>. Peça a eles o endereço pronto. Depois de conectar, é só perguntar; ferramentas disponíveis: listar clientes, visão geral, benchmark por porte e dados de um cliente.</p>
+</div>
+
+<div class="section-title">Opção 2: copiar e colar</div>
+<div class="card" style="margin-bottom:20px;">
+  <p style="margin:0 0 8px;">Funciona em qualquer IA (Claude ou ChatGPT), sem configurar nada:</p>
   <ol style="margin:0;padding-left:20px;line-height:1.9;">
     <li>Abra o <b>Dashboard</b> ou a aba <b>Cliente</b> e ajuste o período e as empresas.</li>
-    <li>Copie os números que aparecem na tela.</li>
-    <li>No <b>Claude</b> (claude.ai) ou <b>ChatGPT</b> (chatgpt.com), cole os dados e faça a pergunta.</li>
+    <li>Copie os números da tela.</li>
+    <li>Cole na IA e faça a pergunta.</li>
   </ol>
   <p class="muted" style="margin:12px 0 6px;">Prompt inicial sugerido:</p>
   <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin:0;overflow:auto;font-size:13px;white-space:pre-wrap;">Você é analista de Customer Success da WeCare. Abaixo estão dados
@@ -32,10 +45,6 @@ anonimizados de clientes (sem dados pessoais). Analise e me diga:
     <li>“Compare o cliente X com a mediana do seu porte e diga onde ele está abaixo.”</li>
     <li>“Liste os clientes com queda de acessos mês a mês.”</li>
   </ul>
-</div>
-
-<div class="card muted" style="margin-bottom:20px;font-size:13px;">
-  <b>E passar só a URL da API para a IA?</b> Não funciona colar o endereço no Claude ou ChatGPT do navegador, porque a API pede login e a IA não está autenticada. Por isso o caminho hoje é copiar e colar os dados. Se quiser um link que a IA consiga abrir sozinha, dá para criar um endpoint protegido por token no futuro.
 </div>
 
 <div class="card muted" style="font-size:13px;">

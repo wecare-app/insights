@@ -5,6 +5,10 @@ Rails.application.routes.draw do
 
   get '/health', to: proc { [200, { 'Content-Type' => 'application/json' }, ['{"status":"ok"}']] }
 
+  # MCP remoto (Claude.ai custom connector). Auth por token (?key=).
+  post '/mcp', to: 'mcp#handle'
+  get '/mcp', to: 'mcp#stream'
+
   # Autenticação (OAuth Google)
   get '/login', to: 'sessions#new'
   get '/auth/:provider/callback', to: 'sessions#create'
