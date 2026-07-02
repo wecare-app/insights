@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   root 'dashboard#index'
   get '/empresas', to: 'manage#index'
+  get '/inteligencia-artificial', to: 'ai#index'
 
   get '/health', to: proc { [200, { 'Content-Type' => 'application/json' }, ['{"status":"ok"}']] }
 

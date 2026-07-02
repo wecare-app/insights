@@ -51,7 +51,7 @@
       .kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
         padding:18px 20px;border-top:3px solid var(--tiffany);}
       .kpi .label{font-size:12px;color:var(--muted);}
-      .kpi .value{font-size:28px;font-weight:700;margin-top:4px;color:var(--primary);}
+      .kpi .value{font-size:26px;font-weight:700;margin-top:4px;color:var(--primary);line-height:1.15;overflow-wrap:anywhere;}
       .kpi .info{cursor:help;color:var(--muted);font-size:12px;border:1px solid var(--border);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;line-height:1;}
       th .info{cursor:help;color:var(--muted);font-size:11px;}
 
@@ -110,6 +110,7 @@
         <ul class="sidebar__nav">
           <li><a href="/" class="<%= 'active' if controller_name == 'dashboard' %>"><span class="ico"><i class="fa-solid fa-chart-column"></i></span> Dashboard</a></li>
           <li><a href="/empresas" class="<%= 'active' if controller_name == 'manage' %>"><span class="ico"><i class="fa-solid fa-building"></i></span> Empresas</a></li>
+          <li><a href="/inteligencia-artificial" class="<%= 'active' if controller_name == 'ai' %>"><span class="ico"><i class="fa-solid fa-robot"></i></span> Inteligência Artificial</a></li>
         </ul>
         <div class="sidebar__footer">
           <div><%= current_user_email %></div>
