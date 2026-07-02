@@ -161,7 +161,7 @@
       ['Usuários ativos', fmt(sumBy(d => d.accesses?.metrics?.active_users)), 'Colaboradores com status "ativo".'],
       ['Logins', fmt(sumBy(d => d.accesses?.metrics?.successful_logins)), 'Total de logins bem-sucedidos no período.'],
       ['Logins com falha', fmt(sumBy(d => d.accesses?.metrics?.failed_logins)), 'Tentativas de login malsucedidas (útil para detectar problema de SSO/senha).'],
-      ['Usuários únicos com acesso', fmt(sumBy(d => d.accesses?.metrics?.unique_users_logged)), 'Colaboradores distintos que acessaram ao menos uma vez no período.'],
+      ['Usuários únicos com acesso', fmt(sumBy(d => d.accesses?.metrics?.unique_users_logged)), 'Pessoas distintas que acessaram no período (não conta cadastros pendentes/não confirmados). Mesmo critério do "Pessoas que acessaram" do admin.'],
       ['Horário de pico', totals.some(t => t > 0) ? `${peak}h` : '—', 'Hora do dia com mais logins somando todos os clientes.'],
     ]) + `
       <div class="section-title">Pico de acessos por hora <span class="muted" style="font-weight:400;font-size:13px;">(visão de infraestrutura/dev)</span></div>
