@@ -1,61 +1,43 @@
 <div class="page-header">
   <div class="eyebrow">WeCare</div>
   <h1>Inteligência Artificial</h1>
-  <div class="sub">Explore os dados anonimizados dos clientes com Claude ou ChatGPT.</div>
+  <div class="sub">Use Claude ou ChatGPT para analisar os dados dos clientes.</div>
 </div>
 
 <div class="card" style="margin-bottom:20px;">
-  <p style="margin:0 0 8px;">Os Insights não são só os gráficos desta tela. Por baixo existe uma <b>API de dados granulares anonimizados</b> (sem nome, e-mail ou CPF) — reconhecimentos, acessos, resgates, engajamento, financeiro e mais, empresa por empresa. Isso permite pedir para uma IA <b>cruzar dados e achar padrões</b> que nenhum dashboard fixo mostra.</p>
-  <p class="muted" style="margin:0;">Ex.: “quais clientes tiveram queda de reconhecimentos e pararam de comprar pontos?” · “times com 1:1 frequente acessam mais?” · “empresas do mesmo porte que a Danone engajam mais?”</p>
+  <p style="margin:0;">Os dados desta ferramenta são anonimizados (sem nome, e-mail ou CPF). Você pode copiá-los e pedir para uma IA analisar, cruzar informações e sugerir ações que nenhum gráfico fixo mostra.</p>
 </div>
 
-<div class="section-title">Opção 1 — Copiar e perguntar (mais simples)</div>
+<div class="section-title">Como usar</div>
 <div class="card" style="margin-bottom:20px;">
   <ol style="margin:0;padding-left:20px;line-height:1.9;">
-    <li>Abra o <b>Dashboard</b> ou a aba <b>Cliente</b> e ajuste o período/empresa que quer analisar.</li>
-    <li>Copie os números que aparecem (ou peça um export ao time técnico).</li>
-    <li>No <b>Claude</b> (claude.ai) ou <b>ChatGPT</b>, cole os dados e faça a pergunta. Um bom prompt inicial:</li>
+    <li>Abra o <b>Dashboard</b> ou a aba <b>Cliente</b> e ajuste o período e as empresas.</li>
+    <li>Copie os números que aparecem na tela.</li>
+    <li>No <b>Claude</b> (claude.ai) ou <b>ChatGPT</b> (chatgpt.com), cole os dados e faça a pergunta.</li>
   </ol>
-  <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;overflow:auto;font-size:13px;white-space:pre-wrap;">Você é analista de Customer Success da WeCare. Abaixo estão dados
+  <p class="muted" style="margin:12px 0 6px;">Prompt inicial sugerido:</p>
+  <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin:0;overflow:auto;font-size:13px;white-space:pre-wrap;">Você é analista de Customer Success da WeCare. Abaixo estão dados
 anonimizados de clientes (sem dados pessoais). Analise e me diga:
-1) quais clientes mostram sinais de churn (queda de engajamento/uso);
+1) quais clientes mostram sinais de churn (queda de engajamento ou uso);
 2) 3 recomendações práticas por cliente em risco.
 
 [cole aqui os dados]</pre>
 </div>
 
-<div class="section-title">Opção 2 — Conectar via MCP (avançado / técnico)</div>
-<div class="card" style="margin-bottom:20px;">
-  <p style="margin:0 0 10px;">O agregador expõe um servidor <b>MCP</b> (Model Context Protocol) com ferramentas prontas — o Claude passa a consultar os dados <b>ao vivo</b>, sem copiar e colar. Ferramentas disponíveis:</p>
-  <ul style="margin:0 0 12px;padding-left:20px;line-height:1.8;">
-    <li><code>list_clients</code> — lista os clientes ativos</li>
-    <li><code>get_overview</code> — visão geral agregada no período</li>
-    <li><code>get_benchmark_by_porte</code> — comparação por faixa de porte</li>
-    <li><code>get_analytics_by_client_name</code> — dados de um cliente específico</li>
-  </ul>
-  <p style="margin:0 0 8px;">No <b>Claude Desktop</b>, adicione ao arquivo de configuração de MCP servers:</p>
-  <pre style="background:#f5f7fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin:0;overflow:auto;font-size:13px;">{
-  "mcpServers": {
-    "wecare-insights": {
-      "command": "ruby",
-      "args": ["/caminho/para/wecare-insights/bin/mcp"]
-    }
-  }
-}</pre>
-  <p class="muted" style="margin:10px 0 0;">Requer o app do agregador acessível no ambiente onde o Claude Desktop roda (acesso ao banco e às variáveis). Fale com o time técnico para configurar em produção — em geral via um endpoint HTTP protegido pelo mesmo login desta tela.</p>
-</div>
-
 <div class="section-title">Boas perguntas para começar</div>
-<div class="card">
+<div class="card" style="margin-bottom:20px;">
   <ul style="margin:0;padding-left:20px;line-height:2;">
     <li>“Quem recebe mais reconhecimento também resgata mais recompensas?”</li>
     <li>“Quais clientes têm funcionalidade ativa mas uso zero no período?”</li>
     <li>“Compare o cliente X com a mediana do seu porte e diga onde ele está abaixo.”</li>
     <li>“Liste os clientes com queda de acessos mês a mês.”</li>
-    <li>“Qual o horário de pico de acessos e como isso afeta possíveis timeouts?”</li>
   </ul>
 </div>
 
-<div class="card muted" style="margin-top:20px;font-size:13px;">
-  <b>Privacidade:</b> os dados expostos à IA são pseudonimizados (colaboradores viram um código estável, sem nome/e-mail/CPF). Ainda assim são dados pessoais pela LGPD — use apenas em ferramentas corporativas autorizadas e não compartilhe externamente sem aprovação.
+<div class="card muted" style="margin-bottom:20px;font-size:13px;">
+  <b>E passar só a URL da API para a IA?</b> Não funciona colar o endereço no Claude ou ChatGPT do navegador, porque a API pede login e a IA não está autenticada. Por isso o caminho hoje é copiar e colar os dados. Se quiser um link que a IA consiga abrir sozinha, dá para criar um endpoint protegido por token no futuro.
+</div>
+
+<div class="card muted" style="font-size:13px;">
+  <b>Privacidade:</b> os dados são pseudonimizados (colaboradores viram um código, sem nome, e-mail ou CPF). Ainda assim são dados pessoais pela LGPD. Use apenas em ferramentas corporativas autorizadas e não compartilhe externamente sem aprovação.
 </div>

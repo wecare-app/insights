@@ -250,7 +250,7 @@
   }
 
   function benchmarkSelector() {
-    const opts = ['<option value="">— visão geral por porte —</option>'].concat(
+    const opts = ['<option value="">Visão geral por porte</option>'].concat(
       clients().filter(c => c.data).map(c =>
         `<option value="${esc(c.wecare_id)}" ${c.wecare_id === BENCHMARK_COMPARE ? 'selected' : ''}>${esc(c.client)}</option>`)
     ).join('');
@@ -280,7 +280,7 @@
       ? `<span title="Metade das empresas deste porte ficam entre ${f(m.p25)} e ${f(m.p75)}">${f(m.median)}</span>`
       : '—';
     let html = `<div class="section-title">Benchmark por porte</div>
-      <p class="muted" style="margin:-6px 0 12px;font-size:13px;">Cada valor é a <strong>mediana</strong> das empresas do porte — o valor do meio, metade fica acima e metade abaixo. Passe o mouse sobre um número para ver a faixa comum. Para comparar um cliente com o seu grupo, selecione-o acima.</p>`;
+      <p class="muted" style="margin:-6px 0 12px;font-size:13px;">Cada valor é a <strong>mediana</strong> das empresas do porte: o valor do meio, com metade acima e metade abaixo. Passe o mouse sobre um número para ver a faixa comum. Para comparar um cliente com o seu grupo, selecione-o acima.</p>`;
     html += '<table><thead><tr><th>Porte</th><th>Empresas</th>' +
       keys.map(k => `<th>${BENCHMARK_METRICS[k].label}</th>`).join('') + '</tr></thead><tbody>';
     html += portes.map(p => `<tr><td><strong>${esc(p)}</strong></td><td>${buckets[p].companies}</td>` +
@@ -313,7 +313,7 @@
         <th>Métrica</th><th>Este cliente</th><th>Mediana do porte</th>
         <th>Faixa comum <span class="muted" style="font-weight:400;">(50% das empresas)</span></th><th>Situação</th>
       </tr></thead><tbody>${rows}</tbody></table>
-      <p class="muted" style="margin-top:10px;font-size:13px;">A <strong>faixa comum</strong> é onde está metade das empresas do mesmo porte. Ficar acima ou abaixo dela é o que sinaliza que o cliente se destaca — para cima ou para baixo.</p>`;
+      <p class="muted" style="margin-top:10px;font-size:13px;">A <strong>faixa comum</strong> é onde está metade das empresas do mesmo porte. Ficar acima ou abaixo dela é o que sinaliza que o cliente se destaca, para cima ou para baixo.</p>`;
   }
 
   let SELECTED_CLIENT = null;
