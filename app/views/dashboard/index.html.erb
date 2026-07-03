@@ -352,7 +352,7 @@
       const bt = c.data.redemptions?.metrics?.by_type || {};
       Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
       const pc = c.data.redemptions?.metrics?.per_category || {};
-      Object.entries(pc).forEach(([k, v]) => { byCategory[k] = (byCategory[k] || 0) + (Number(v) || 0); });
+      Object.entries(pc).forEach(([k, v]) => { if (k && String(k).trim()) byCategory[k] = (byCategory[k] || 0) + (Number(v) || 0); });
       const bp = c.data.redemptions?.metrics?.by_price || {};
       Object.entries(bp).forEach(([k, v]) => { byPrice[k] = (byPrice[k] || 0) + (Number(v) || 0); });
     });
