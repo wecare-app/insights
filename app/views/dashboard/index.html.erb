@@ -47,39 +47,68 @@
 <div id="content"><p class="muted">Carregando…</p></div>
 
 <script nonce="<%= content_security_policy_nonce %>">
-  const PALETTE = ['#E7326B','#7D43FF','#2B7FF4','#34DFE0','#9AF0C7','#4FB26B','#F7D655','#F07C39','#E94044','#413BC2'];
+  const PALETTE = ['#0FA37F','#0F2030','#E7A93B','#5B6CFF','#E5484D','#9AF0C7','#2B7FF4','#8B93A7'];
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   const fmt = (n) => (Number(n) || 0).toLocaleString('pt-BR');
   const fmtBRL = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  Chart.defaults.font.family = "'Poppins',sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#5F7080';
+  const CHART_TOOLTIP = { backgroundColor: '#0F2030', padding: 10, cornerRadius: 8, titleColor: '#fff', bodyColor: '#CBD8E2', displayColors: false };
+
   let OVERVIEW = null;
+  let OVERVIEW_PREV = null;
   let CURRENT_TAB = 'overview';
   let CHARTS = [];
   let SELECTED = [];
 
-  function clients() {
-    return (OVERVIEW?.per_client || []);
-  }
+  function clients() { return (OVERVIEW?.per_client || []); }
+  function prevClients() { return (OVERVIEW_PREV?.per_client || []); }
   function ok(list) { return list.filter(c => c.data); }
-  function sumBy(path) {
-    return ok(clients()).reduce((acc, c) => acc + (Number(path(c.data)) || 0), 0);
-  }
+  function sumBy(path) { return ok(clients()).reduce((acc, c) => acc + (Number(path(c.data)) || 0), 0); }
+  function sumByPrev(path) { return ok(prevClients()).reduce((acc, c) => acc + (Number(path(c.data)) || 0), 0); }
   function destroyCharts() { CHARTS.forEach(c => c.destroy()); CHARTS = []; }
 
-  function kpi(label, value, tip) {
+  // Variação vs período anterior (mesma duração, imediatamente antes).
+  function deltaChip(cur, prev) {
+    if (!OVERVIEW_PREV) return '';
+    cur = Number(cur) || 0; prev = Number(prev) || 0;
+    if (prev === 0) return '';
+    const pct = ((cur - prev) / prev) * 100;
+    const r = Math.round(Math.abs(pct));
+    if (r === 0) return '<span class="delta delta--flat">estável</span>';
+    const up = pct > 0;
+    return `<span class="delta delta--${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${r}%</span>`;
+  }
+  function dc(path) { return deltaChip(sumBy(path), sumByPrev(path)); }
+
+  function kpi(label, value, tip, delta) {
     const info = tip ? ` <span class="info" title="${tip}">i</span>` : '';
-    return `<div class="kpi"><div class="label">${label}${info}</div><div class="value">${value}</div></div>`;
+    const foot = delta ? `<div class="foot">${delta}</div>` : '';
+    return `<div class="kpi"><div class="label">${label}${info}</div><div class="value">${value}</div>${foot}</div>`;
   }
   function kpis(items) {
-    return `<div class="grid kpis">${items.map(([l, v, tip]) => kpi(l, v, tip)).join('')}</div>`;
+    return `<div class="grid kpis">${items.map(a => kpi(a[0], a[1], a[2], a[3])).join('')}</div>`;
   }
-  function barChart(canvasId, label, labels, data, colorIdx = 2) {
+
+  function chartOpts() {
+    return {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: CHART_TOOLTIP },
+      scales: {
+        x: { grid: { display: false }, border: { display: false } },
+        y: { grid: { color: '#EEF3F6' }, border: { display: false }, ticks: { maxTicksLimit: 5 }, beginAtZero: true }
+      }
+    };
+  }
+  function barChart(canvasId, label, labels, data, colorIdx = 0) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     CHARTS.push(new Chart(ctx, {
       type: 'bar',
-      data: { labels, datasets: [{ label, data, backgroundColor: PALETTE[colorIdx], borderRadius: 6 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      data: { labels, datasets: [{ label, data, backgroundColor: PALETTE[colorIdx], borderRadius: 6, maxBarThickness: 46 }] },
+      options: chartOpts()
     }));
   }
   function pieChart(canvasId, labels, data) {
@@ -87,8 +116,9 @@
     if (!ctx) return;
     CHARTS.push(new Chart(ctx, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: PALETTE }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+      data: { labels, datasets: [{ data, backgroundColor: PALETTE, borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '66%',
+        plugins: { legend: { position: 'right', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, padding: 14 } }, tooltip: CHART_TOOLTIP } }
     }));
   }
 
@@ -101,14 +131,16 @@
 
   function renderOverview() {
     const t = OVERVIEW.totals || {};
+    const p = OVERVIEW_PREV?.totals || {};
+    const dt = (k) => deltaChip(t[k], p[k]);
     const html = errorsBanner() + kpis([
-      ['Saldo dos clientes (R$)', fmtBRL(t.balance_brl), 'Saldo ainda não gasto, somando todos os clientes. Se a empresa usa créditos: valor em R$. Se usa pontos: (saldo da empresa + saldo pessoal + saldo para reconhecer de cada colaborador) × valor do ponto.'],
-      ['Reconhecimentos', fmt(t.recognitions_count), 'Reconhecimentos entre pares (360) enviados no período.'],
-      ['Pontos distribuídos em reconhecimentos', fmt(t.distributed_points), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal nem pontos comprados.'],
-      ['Usuários ativos', fmt(t.active_users), 'Colaboradores com status "ativo".'],
-      ['Logins', fmt(t.successful_logins), 'Logins bem-sucedidos no período.'],
-      ['Resgates', fmt(t.total_redemptions), 'Trocas de recompensas (pedidos) feitas no período.'],
-      ['Total resgatado (R$)', fmtBRL(t.total_brl), 'Valor em reais das trocas no marketplace WeCare no período.'],
+      ['Saldo dos clientes (R$)', fmtBRL(t.balance_brl), 'Saldo ainda não gasto, somando todos os clientes. Se a empresa usa créditos: valor em R$. Se usa pontos: (saldo da empresa + saldo pessoal + saldo para reconhecer de cada colaborador) × valor do ponto.', dt('balance_brl')],
+      ['Reconhecimentos', fmt(t.recognitions_count), 'Reconhecimentos entre pares (360) enviados no período.', dt('recognitions_count')],
+      ['Pontos distribuídos em reconhecimentos', fmt(t.distributed_points), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal nem pontos comprados.', dt('distributed_points')],
+      ['Usuários ativos', fmt(t.active_users), 'Colaboradores com status "ativo".', dt('active_users')],
+      ['Logins', fmt(t.successful_logins), 'Logins bem-sucedidos no período.', dt('successful_logins')],
+      ['Resgates', fmt(t.total_redemptions), 'Trocas de recompensas (pedidos) feitas no período.', dt('total_redemptions')],
+      ['Total resgatado (R$)', fmtBRL(t.total_brl), 'Valor em reais das trocas no marketplace WeCare no período.', dt('total_brl')],
     ]) + `
       <div class="section-title">Usuários ativos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
@@ -116,7 +148,7 @@
       <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>Status</th></tr></thead>
       <tbody>${clients().map(c => {
         const d = c.data || {};
-        const st = c.error ? `<span class="err">${esc(c.error)}</span>` : '<span class="badge">ok</span>';
+        const st = c.error ? `<span class="tag tag--crit">erro</span>` : '<span class="tag tag--ok">ativo</span>';
         return `<tr><td>${esc(c.client)}</td><td>${d.balances ? fmtBRL(d.balances.total_brl) : '—'}</td>
           <td>${fmt(d.recognitions?.metrics?.recognitions_count)}</td>
           <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.successful_logins)}</td>
@@ -128,11 +160,11 @@
 
   function renderRecognitions() {
     const html = kpis([
-      ['Participantes', fmt(sumBy(d => d.recognitions?.metrics?.participants)), 'Colaboradores participantes do programa de reconhecimento.'],
-      ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares (360) enviados no período.'],
-      ['Pontos distribuídos em reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.distributed_points)), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal.'],
-      ['Curtidas', fmt(sumBy(d => d.recognitions?.metrics?.likes)), 'Curtidas nos reconhecimentos no período.'],
-      ['Comentários', fmt(sumBy(d => d.recognitions?.metrics?.comments)), 'Comentários nos reconhecimentos no período.'],
+      ['Participantes', fmt(sumBy(d => d.recognitions?.metrics?.participants)), 'Colaboradores participantes do programa de reconhecimento.', dc(d => d.recognitions?.metrics?.participants)],
+      ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares (360) enviados no período.', dc(d => d.recognitions?.metrics?.recognitions_count)],
+      ['Pontos distribuídos em reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.distributed_points)), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal.', dc(d => d.recognitions?.metrics?.distributed_points)],
+      ['Curtidas', fmt(sumBy(d => d.recognitions?.metrics?.likes)), 'Curtidas nos reconhecimentos no período.', dc(d => d.recognitions?.metrics?.likes)],
+      ['Comentários', fmt(sumBy(d => d.recognitions?.metrics?.comments)), 'Comentários nos reconhecimentos no período.', dc(d => d.recognitions?.metrics?.comments)],
     ]) + `
       <div class="section-title">Reconhecimentos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
@@ -157,11 +189,11 @@
     const totals = hourlyTotals();
     const peak = totals.indexOf(Math.max(...totals));
     const html = kpis([
-      ['Total de usuários', fmt(sumBy(d => d.accesses?.metrics?.total_users)), 'Colaboradores cadastrados (não descartados).'],
-      ['Usuários ativos', fmt(sumBy(d => d.accesses?.metrics?.active_users)), 'Colaboradores com status "ativo".'],
-      ['Logins', fmt(sumBy(d => d.accesses?.metrics?.successful_logins)), 'Total de logins bem-sucedidos no período.'],
-      ['Logins com falha', fmt(sumBy(d => d.accesses?.metrics?.failed_logins)), 'Tentativas de login malsucedidas (útil para detectar problema de SSO/senha).'],
-      ['Usuários únicos com acesso', fmt(sumBy(d => d.accesses?.metrics?.unique_users_logged)), 'Pessoas distintas que acessaram no período (não conta cadastros pendentes/não confirmados). Mesmo critério do "Pessoas que acessaram" do admin.'],
+      ['Total de usuários', fmt(sumBy(d => d.accesses?.metrics?.total_users)), 'Colaboradores cadastrados (não descartados).', dc(d => d.accesses?.metrics?.total_users)],
+      ['Usuários ativos', fmt(sumBy(d => d.accesses?.metrics?.active_users)), 'Colaboradores com status "ativo".', dc(d => d.accesses?.metrics?.active_users)],
+      ['Logins', fmt(sumBy(d => d.accesses?.metrics?.successful_logins)), 'Total de logins bem-sucedidos no período.', dc(d => d.accesses?.metrics?.successful_logins)],
+      ['Logins com falha', fmt(sumBy(d => d.accesses?.metrics?.failed_logins)), 'Tentativas de login malsucedidas (útil para detectar problema de SSO/senha).', dc(d => d.accesses?.metrics?.failed_logins)],
+      ['Usuários únicos com acesso', fmt(sumBy(d => d.accesses?.metrics?.unique_users_logged)), 'Pessoas distintas que acessaram no período (não conta cadastros pendentes/não confirmados). Mesmo critério do "Pessoas que acessaram" do admin.', dc(d => d.accesses?.metrics?.unique_users_logged)],
       ['Horário de pico', totals.some(t => t > 0) ? `${peak}h` : '—', 'Hora do dia com mais logins somando todos os clientes.'],
     ]) + `
       <div class="section-title">Pico de acessos por hora <span class="muted" style="font-weight:400;font-size:13px;">(visão de infraestrutura/dev)</span></div>
@@ -179,14 +211,14 @@
 
   function renderEngagement() {
     const html = kpis([
-      ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares no período.'],
-      ['Reconhecimento da empresa (pontos)', fmt(sumBy(d => d.gratitudes?.metrics?.points_total)), 'Pontos distribuídos pela empresa/gestores aos colaboradores.'],
-      ['Feedbacks', fmt(sumBy(d => d.feedbacks?.metrics?.total)), 'Feedbacks trocados no período.'],
-      ['1:1 realizados', fmt(sumBy(d => d.one_on_ones?.metrics?.done)), 'Reuniões 1:1 marcadas como realizadas.'],
-      ['Avaliações de skill', fmt(sumBy(d => d.skill_evaluations?.metrics?.total)), 'Avaliações de competências submetidas.'],
-      ['Avaliação de performance', fmt(sumBy(d => d.outcome_evaluations?.metrics?.total)), 'Avaliações de performance submetidas.'],
-      ['Conquistas', fmt(sumBy(d => d.achievements?.metrics?.total)), 'Badges concedidos no período.'],
-      ['Curtidas no feed', fmt(sumBy(d => d.social?.metrics?.likes_total)), 'Curtidas em posts do feed social.'],
+      ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares no período.', dc(d => d.recognitions?.metrics?.recognitions_count)],
+      ['Reconhecimento da empresa (pontos)', fmt(sumBy(d => d.gratitudes?.metrics?.points_total)), 'Pontos distribuídos pela empresa/gestores aos colaboradores.', dc(d => d.gratitudes?.metrics?.points_total)],
+      ['Feedbacks', fmt(sumBy(d => d.feedbacks?.metrics?.total)), 'Feedbacks trocados no período.', dc(d => d.feedbacks?.metrics?.total)],
+      ['1:1 realizados', fmt(sumBy(d => d.one_on_ones?.metrics?.done)), 'Reuniões 1:1 marcadas como realizadas.', dc(d => d.one_on_ones?.metrics?.done)],
+      ['Avaliações de skill', fmt(sumBy(d => d.skill_evaluations?.metrics?.total)), 'Avaliações de competências submetidas.', dc(d => d.skill_evaluations?.metrics?.total)],
+      ['Avaliação de performance', fmt(sumBy(d => d.outcome_evaluations?.metrics?.total)), 'Avaliações de performance submetidas.', dc(d => d.outcome_evaluations?.metrics?.total)],
+      ['Conquistas', fmt(sumBy(d => d.achievements?.metrics?.total)), 'Badges concedidos no período.', dc(d => d.achievements?.metrics?.total)],
+      ['Curtidas no feed', fmt(sumBy(d => d.social?.metrics?.likes_total)), 'Curtidas em posts do feed social.', dc(d => d.social?.metrics?.likes_total)],
     ]) + `
       <div class="section-title">Volume por funcionalidade</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>`;
@@ -210,9 +242,9 @@
       Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
     });
     const html = kpis([
-      ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.'],
-      ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.'],
-      ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.'],
+      ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.', dc(d => d.redemptions?.metrics?.total_redemptions)],
+      ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.', dc(d => d.redemptions?.metrics?.redeemed_points)],
+      ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.', dc(d => d.redemptions?.metrics?.total_brl)],
     ]) + `
       <div class="grid" style="grid-template-columns:1fr 2fr;align-items:start;">
         <div><div class="section-title">Por tipo</div><div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div></div>
@@ -395,16 +427,33 @@
        redemptions: renderRedemptions, engagement: renderEngagement, client: renderClient }[CURRENT_TAB])();
   }
 
+  function previousRange(s, e) {
+    if (!s || !e) return null;
+    const sd = new Date(s + 'T00:00:00'), ed = new Date(e + 'T00:00:00');
+    const days = Math.round((ed - sd) / 86400000) + 1;
+    if (!(days > 0)) return null;
+    const pe = new Date(sd); pe.setDate(pe.getDate() - 1);
+    const ps = new Date(pe); ps.setDate(ps.getDate() - (days - 1));
+    return { start: isoDate(ps), end: isoDate(pe) };
+  }
+
   async function loadOverview() {
-    const qs = new URLSearchParams();
     const s = document.getElementById('start').value, e = document.getElementById('end').value;
-    if (s) qs.set('start_date', s);
-    if (e) qs.set('end_date', e);
-    if (SELECTED.length) qs.set('companies', SELECTED.join(','));
+    const cur = new URLSearchParams();
+    if (s) cur.set('start_date', s);
+    if (e) cur.set('end_date', e);
+    if (SELECTED.length) cur.set('companies', SELECTED.join(','));
     document.getElementById('content').innerHTML = '<p class="muted">Carregando…</p>';
-    const res = await fetch('/api/overview?' + qs.toString(), { headers: { Accept: 'application/json' } });
-    if (res.status === 401) { window.location = '/login'; return; }
-    OVERVIEW = await res.json();
+
+    const pr = previousRange(s, e);
+    const prev = new URLSearchParams(cur);
+    if (pr) { prev.set('start_date', pr.start); prev.set('end_date', pr.end); }
+    const get = (qs) => fetch('/api/overview?' + qs.toString(), { headers: { Accept: 'application/json' } });
+
+    const [rc, rp] = await Promise.all([get(cur), pr ? get(prev) : Promise.resolve(null)]);
+    if (rc.status === 401) { window.location = '/login'; return; }
+    OVERVIEW = await rc.json();
+    OVERVIEW_PREV = (rp && rp.ok) ? await rp.json() : null;
     render();
   }
 
