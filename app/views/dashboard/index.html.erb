@@ -59,6 +59,8 @@
 
   let OVERVIEW = null;
   let OVERVIEW_PREV = null;
+  let COMPARE_LABEL = 'vs. período anterior';
+  let COMPARE_TIP = '';
   let CURRENT_TAB = 'overview';
   let CHARTS = [];
   let SELECTED = [];
@@ -70,6 +72,18 @@
   function sumByPrev(path) { return ok(prevClients()).reduce((acc, c) => acc + (Number(path(c.data)) || 0), 0); }
   function destroyCharts() { CHARTS.forEach(c => c.destroy()); CHARTS = []; }
 
+  // Rótulo do que está sendo comparado, conforme o período selecionado.
+  function comparisonLabel(preset) {
+    return {
+      today: 'vs. ontem', yesterday: 'vs. dia anterior',
+      this_week: 'vs. semana anterior', last_week: 'vs. semana anterior',
+      this_month: 'vs. mês anterior', last_month: 'vs. mês anterior',
+      this_quarter: 'vs. trimestre anterior', last_quarter: 'vs. trimestre anterior',
+      this_semester: 'vs. semestre anterior', last_semester: 'vs. semestre anterior',
+      this_year: 'vs. ano anterior', last_year: 'vs. ano anterior'
+    }[preset] || 'vs. período anterior';
+  }
+
   // Variação vs período anterior (mesma duração, imediatamente antes).
   function deltaChip(cur, prev) {
     if (!OVERVIEW_PREV) return '';
@@ -77,9 +91,10 @@
     if (prev === 0) return '';
     const pct = ((cur - prev) / prev) * 100;
     const r = Math.round(Math.abs(pct));
-    if (r === 0) return '<span class="delta delta--flat">estável</span>';
-    const up = pct > 0;
-    return `<span class="delta delta--${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${r}%</span>`;
+    const pill = r === 0
+      ? '<span class="delta delta--flat">estável</span>'
+      : `<span class="delta delta--${pct > 0 ? 'up' : 'down'}">${pct > 0 ? '▲' : '▼'} ${r}%</span>`;
+    return `${pill} <span class="delta-vs" title="${esc(COMPARE_TIP)}">${esc(COMPARE_LABEL)}</span>`;
   }
   function dc(path) { return deltaChip(sumBy(path), sumByPrev(path)); }
 
@@ -506,6 +521,9 @@
     document.getElementById('content').innerHTML = '<p class="muted">Carregando…</p>';
 
     const pr = previousRange(s, e);
+    const br = (iso) => (iso || '').split('-').reverse().join('/');
+    COMPARE_LABEL = comparisonLabel(document.getElementById('preset').value);
+    COMPARE_TIP = pr ? `Período atual: ${br(s)} a ${br(e)}\nComparado com: ${br(pr.start)} a ${br(pr.end)}` : '';
     const prev = new URLSearchParams(cur);
     if (pr) { prev.set('start_date', pr.start); prev.set('end_date', pr.end); }
     const get = (qs) => fetch('/api/overview?' + qs.toString(), { headers: { Accept: 'application/json' } });
