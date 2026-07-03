@@ -129,6 +129,66 @@
       <span class="err">Ambientes com erro: ${errs.map(esc).join(', ')}</span></div>`;
   }
 
+  // Dados do mesmo cliente no período anterior (para os sinais de queda).
+  function prevData(wecareId) {
+    const c = prevClients().find(x => x.wecare_id === wecareId && x.data);
+    return c ? c.data : null;
+  }
+
+  // Sinais determinísticos e explicáveis por cliente. Limites ajustáveis.
+  const DROP_THRESHOLD = 20;      // % de queda vs período anterior
+  const ACTIVATION_MIN = 0.30;    // ativos ÷ total
+
+  function clientSignal(c) {
+    if (c.error || !c.data) return { cls: 'crit', label: 'erro na sincronização', tip: c.error || 'Sem dados retornados para este cliente.' };
+    const d = c.data;
+    const rec = Number(d.recognitions?.metrics?.recognitions_count) || 0;
+    const red = Number(d.redemptions?.metrics?.total_redemptions) || 0;
+    const active = Number(d.accesses?.metrics?.active_users) || 0;
+    const total = Number(d.accesses?.metrics?.total_users) || 0;
+    const uniq = Number(d.accesses?.metrics?.unique_users_logged) || 0;
+    const prev = prevData(c.wecare_id);
+    const signals = [];
+
+    if (prev) {
+      const uniqPrev = Number(prev.accesses?.metrics?.unique_users_logged) || 0;
+      if (uniqPrev > 0) {
+        const drop = ((uniq - uniqPrev) / uniqPrev) * 100;
+        if (drop <= -DROP_THRESHOLD) signals.push({ cls: 'crit', label: `Acessos ↓ ${Math.round(-drop)}%`, tip: `Usuários únicos com acesso: ${fmt(uniq)} vs ${fmt(uniqPrev)} no período anterior (${Math.round(drop)}%).` });
+      }
+      const recPrev = Number(prev.recognitions?.metrics?.recognitions_count) || 0;
+      if (recPrev > 0) {
+        const drop = ((rec - recPrev) / recPrev) * 100;
+        if (drop <= -DROP_THRESHOLD) signals.push({ cls: 'crit', label: `Reconhec. ↓ ${Math.round(-drop)}%`, tip: `Reconhecimentos: ${fmt(rec)} vs ${fmt(recPrev)} no período anterior (${Math.round(drop)}%).` });
+      }
+    }
+    if (rec > 0 && red === 0) signals.push({ cls: 'warn', label: 'Sem resgates', tip: `${fmt(rec)} reconhecimentos no período e 0 resgates. Pode indicar catálogo vazio ou saldo com atrito.` });
+    if (total > 0 && (active / total) < ACTIVATION_MIN) signals.push({ cls: 'warn', label: 'Baixa ativação', tip: `${fmt(active)} ativos de ${fmt(total)} (${Math.round((active / total) * 100)}%). Menos de ${Math.round(ACTIVATION_MIN * 100)}% da base está ativa.` });
+
+    if (!signals.length) return { cls: 'ok', label: 'Saudável', tip: 'Nenhum sinal de alerta no período.' };
+    const crit = signals.filter(s => s.cls === 'crit');
+    const chosen = crit[0] || signals[0];
+    const extra = signals.length > 1 ? ` +${signals.length - 1}` : '';
+    return { cls: chosen.cls, label: chosen.label + extra, tip: signals.map(s => '• ' + s.tip).join('\n') };
+  }
+
+  function signalTag(c) {
+    const s = clientSignal(c);
+    return `<span class="tag tag--${s.cls}" title="${esc(s.tip)}">${esc(s.label)}</span>`;
+  }
+
+  function attentionBlock() {
+    const flagged = clients().map(c => ({ c, s: clientSignal(c) })).filter(x => x.s.cls !== 'ok');
+    if (!flagged.length) return '';
+    flagged.sort((a, b) => (a.s.cls === 'crit' ? 0 : 1) - (b.s.cls === 'crit' ? 0 : 1));
+    const rows = flagged.map(({ c, s }) => `<tr>
+      <td><strong>${esc(c.client)}</strong></td>
+      <td><span class="tag tag--${s.cls}">${esc(s.label)}</span></td>
+      <td class="muted" style="white-space:pre-line;">${esc(s.tip)}</td></tr>`).join('');
+    return `<div class="section-title">Clientes em atenção <span class="muted" style="font-weight:400;font-size:13px;">(${flagged.length})</span></div>
+      <table><thead><tr><th>Cliente</th><th>Sinal</th><th>Detalhe</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
   function renderOverview() {
     const t = OVERVIEW.totals || {};
     const p = OVERVIEW_PREV?.totals || {};
@@ -141,14 +201,14 @@
       ['Logins', fmt(t.successful_logins), 'Logins bem-sucedidos no período.', dt('successful_logins')],
       ['Resgates', fmt(t.total_redemptions), 'Trocas de recompensas (pedidos) feitas no período.', dt('total_redemptions')],
       ['Total resgatado (R$)', fmtBRL(t.total_brl), 'Valor em reais das trocas no marketplace WeCare no período.', dt('total_brl')],
-    ]) + `
+    ]) + attentionBlock() + `
       <div class="section-title">Usuários ativos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
       <div class="section-title">Por cliente <span class="muted" style="font-weight:400;font-size:13px;">(visão individual)</span></div>
-      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>Sinal</th></tr></thead>
       <tbody>${clients().map(c => {
         const d = c.data || {};
-        const st = c.error ? `<span class="tag tag--crit">erro</span>` : '<span class="tag tag--ok">ativo</span>';
+        const st = signalTag(c);
         return `<tr><td>${esc(c.client)}</td><td>${d.balances ? fmtBRL(d.balances.total_brl) : '—'}</td>
           <td>${fmt(d.recognitions?.metrics?.recognitions_count)}</td>
           <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.successful_logins)}</td>
