@@ -98,6 +98,19 @@
   }
   function dc(path) { return deltaChip(sumBy(path), sumByPrev(path)); }
 
+  // KPI de avaliação mostrando respondidas / criadas + taxa (com fallback se a API
+  // ainda não expõe "answered" — mostra só as criadas nesse caso).
+  function evalKpi(label, section) {
+    const created = sumBy(d => d[section]?.metrics?.created ?? d[section]?.metrics?.total);
+    const hasAnswered = ok(clients()).some(c => c.data?.[section]?.metrics?.answered != null);
+    if (!hasAnswered) return [label, fmt(created), 'Avaliações criadas no período.', dc(d => d[section]?.metrics?.total)];
+    const answered = sumBy(d => d[section]?.metrics?.answered);
+    const rate = created ? Math.round((answered / created) * 100) : 0;
+    return [label, `${fmt(answered)} / ${fmt(created)}`,
+      `Respondidas / criadas no período. Taxa de resposta: ${rate}%.`,
+      dc(d => d[section]?.metrics?.answered)];
+  }
+
   // Série "por cliente" ordenada do maior para o menor; nonZero remove quem tem 0
   // (evita poluição visual e desalinhamento de rótulos com muitas barras vazias).
   function clientSeries(valFn, opts = {}) {
@@ -302,8 +315,8 @@
       ['Reconhecimento da empresa (pontos)', fmt(sumBy(d => d.gratitudes?.metrics?.points_total)), 'Pontos distribuídos pela empresa/gestores aos colaboradores.', dc(d => d.gratitudes?.metrics?.points_total)],
       ['Feedbacks', fmt(sumBy(d => d.feedbacks?.metrics?.total)), 'Feedbacks trocados no período.', dc(d => d.feedbacks?.metrics?.total)],
       ['1:1 realizados', fmt(sumBy(d => d.one_on_ones?.metrics?.done)), 'Reuniões 1:1 marcadas como realizadas.', dc(d => d.one_on_ones?.metrics?.done)],
-      ['Avaliações de skill', fmt(sumBy(d => d.skill_evaluations?.metrics?.total)), 'Avaliações de competências submetidas.', dc(d => d.skill_evaluations?.metrics?.total)],
-      ['Avaliação de performance', fmt(sumBy(d => d.outcome_evaluations?.metrics?.total)), 'Avaliações de performance submetidas.', dc(d => d.outcome_evaluations?.metrics?.total)],
+      evalKpi('Avaliações de skill', 'skill_evaluations'),
+      evalKpi('Avaliação de performance', 'outcome_evaluations'),
       ['Conquistas', fmt(sumBy(d => d.achievements?.metrics?.total)), 'Badges concedidos no período.', dc(d => d.achievements?.metrics?.total)],
       ['Curtidas no feed', fmt(sumBy(d => d.social?.metrics?.likes_total)), 'Curtidas em posts do feed social.', dc(d => d.social?.metrics?.likes_total)],
     ]) + `
