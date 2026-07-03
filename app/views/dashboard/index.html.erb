@@ -367,14 +367,17 @@
     PRICE_BANDS.forEach(b => { bandCounts[b.label] = 0; });
     priceEntries.forEach(([p, n]) => { bandCounts[bandFor(p)] += n; });
 
-    const html = kpis([
+    const kpiItems = [
       ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.', dc(d => d.redemptions?.metrics?.total_redemptions)],
       ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.', dc(d => d.redemptions?.metrics?.redeemed_points)],
       ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.', dc(d => d.redemptions?.metrics?.total_brl)],
-      ['Categoria + resgatada', topCat ? esc(topCat[0]) : '—', topCat ? `${fmt(topCat[1])} resgates de marketplace nesta categoria no período.` : 'Sem resgates de marketplace no período.'],
-      ['Valor mais resgatado', hasPrice ? fmtBRL(mostVal[0]) : '—', hasPrice ? `Recompensas de ${fmtBRL(mostVal[0])} tiveram ${fmt(mostVal[1])} resgates — o valor mais procurado.` : 'Sem dados de valor no período.'],
-      ['Valor menos resgatado', hasPrice ? fmtBRL(leastVal[0]) : '—', hasPrice ? `Recompensas de ${fmtBRL(leastVal[0])} tiveram só ${fmt(leastVal[1])} resgates — o valor menos procurado.` : 'Sem dados de valor no período.'],
-    ]) + `
+    ];
+    if (topCat) kpiItems.push(['Categoria + resgatada', esc(topCat[0]), `${fmt(topCat[1])} resgates de marketplace nesta categoria no período.`]);
+    if (hasPrice) {
+      kpiItems.push(['Valor mais resgatado', fmtBRL(mostVal[0]), `Recompensas de ${fmtBRL(mostVal[0])} tiveram ${fmt(mostVal[1])} resgates — o valor mais procurado.`]);
+      kpiItems.push(['Valor menos resgatado', fmtBRL(leastVal[0]), `Recompensas de ${fmtBRL(leastVal[0])} tiveram só ${fmt(leastVal[1])} resgates — o valor menos procurado.`]);
+    }
+    const html = kpis(kpiItems) + `
       <div class="grid" style="grid-template-columns:1fr 2fr;align-items:start;">
         <div><div class="section-title">Por tipo</div><div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div></div>
         <div><div class="section-title">Resgates por cliente</div><div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div></div>
