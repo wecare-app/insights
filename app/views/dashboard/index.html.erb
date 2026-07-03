@@ -100,6 +100,9 @@
 
   function iqrValue(d) { const v = d?.recognitions?.metrics?.iqr?.iqr_value; return (v == null) ? null : Number(v); }
   function fmtIqr(d) { const v = iqrValue(d); return (v == null) ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }); }
+  function fmtDate(iso) { if (!iso) return '—'; const dt = new Date(iso); return isNaN(dt) ? '—' : dt.toLocaleDateString('pt-BR'); }
+  function daysAgo(iso) { if (!iso) return null; const dt = new Date(iso); if (isNaN(dt)) return null; return Math.floor((Date.now() - dt.getTime()) / 86400000); }
+  function baseUpdatedCell(p) { const iso = p?.base_updated_at; if (!iso) return '—'; const n = daysAgo(iso); return `${fmtDate(iso)}${n != null ? ` <span class="muted">(há ${n}d)</span>` : ''}`; }
 
   const PRICE_BANDS = [
     { label: 'Até R$50', max: 50 },
@@ -254,14 +257,14 @@
       <div class="section-title">Usuários ativos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
       <div class="section-title">Por cliente <span class="muted" style="font-weight:400;font-size:13px;">(visão individual)</span></div>
-      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>IQR <span class="info" title="Índice de qualidade dos reconhecimentos (0–100), quando a empresa usa o recurso.">i</span></th><th>Sinal</th></tr></thead>
+      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>IQR <span class="info" title="Índice de qualidade dos reconhecimentos (0–100), quando a empresa usa o recurso.">i</span></th><th>Base <span class="info" title="Última entrada ou saída de colaborador (contratação/desligamento).">i</span></th><th>Sinal</th></tr></thead>
       <tbody>${clients().map(c => {
         const d = c.data || {};
         const st = signalTag(c);
         return `<tr><td>${esc(c.client)}</td><td>${d.balances ? fmtBRL(d.balances.total_brl) : '—'}</td>
           <td>${fmt(d.recognitions?.metrics?.recognitions_count)}</td>
           <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.successful_logins)}</td>
-          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${fmtIqr(d)}</td><td>${st}</td></tr>`;
+          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${fmtIqr(d)}</td><td>${fmtDate(d.company_profile?.base_updated_at)}</td><td>${st}</td></tr>`;
       }).join('')}</tbody></table>`;
     document.getElementById('content').innerHTML = html;
     const s1 = clientSeries(d => d.accesses?.metrics?.active_users, { nonZero: true });
@@ -555,6 +558,7 @@
           <table><tbody>
             <tr><td class="muted">Nome</td><td>${esc(p.fantasy_name || c.client)}</td></tr>
             <tr><td class="muted">Status</td><td>${esc(p.status || '—')}</td></tr>
+            <tr><td class="muted">Base atualizada</td><td>${baseUpdatedCell(p)}</td></tr>
             <tr><td class="muted">Trial</td><td>${p.trial ? 'sim' : 'não'}</td></tr>
             <tr><td class="muted">Idiomas</td><td>${esc((p.languages || []).join(', ') || '—')}</td></tr>
             <tr><td class="muted">Custo por usuário</td><td>${fmtBRL(sub.cost_per_user)}</td></tr>
