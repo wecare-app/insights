@@ -347,17 +347,22 @@
   function renderRedemptions() {
     const byType = {};
     const byCategory = {};
+    const byReward = {};
     const byPrice = {};
     ok(clients()).forEach(c => {
       const bt = c.data.redemptions?.metrics?.by_type || {};
       Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
       const pc = c.data.redemptions?.metrics?.per_category || {};
       Object.entries(pc).forEach(([k, v]) => { if (k && String(k).trim()) byCategory[k] = (byCategory[k] || 0) + (Number(v) || 0); });
+      const prw = c.data.redemptions?.metrics?.per_reward || {};
+      Object.entries(prw).forEach(([k, v]) => { if (k && String(k).trim()) byReward[k] = (byReward[k] || 0) + (Number(v) || 0); });
       const bp = c.data.redemptions?.metrics?.by_price || {};
       Object.entries(bp).forEach(([k, v]) => { byPrice[k] = (byPrice[k] || 0) + (Number(v) || 0); });
     });
     const catSorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
     const topCat = catSorted[0];
+    const rewardSorted = Object.entries(byReward).sort((a, b) => b[1] - a[1]);
+    const topReward = rewardSorted[0];
 
     const priceEntries = Object.entries(byPrice).map(([p, n]) => [Number(p), n]).filter(([p, n]) => p > 0 && n > 0);
     const hasPrice = priceEntries.length > 0;
@@ -373,6 +378,7 @@
       ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.', dc(d => d.redemptions?.metrics?.total_brl)],
     ];
     if (topCat) kpiItems.push(['Categoria + resgatada', esc(topCat[0]), `${fmt(topCat[1])} resgates de marketplace nesta categoria no período.`]);
+    if (topReward) kpiItems.push(['Recompensa + resgatada', esc(topReward[0]), `${fmt(topReward[1])} resgates dessa recompensa no marketplace no período.`]);
     if (hasPrice) {
       kpiItems.push(['Valor mais resgatado', fmtBRL(mostVal[0]), `Recompensas de ${fmtBRL(mostVal[0])} tiveram ${fmt(mostVal[1])} resgates — o valor mais procurado.`]);
       kpiItems.push(['Valor menos resgatado', fmtBRL(leastVal[0]), `Recompensas de ${fmtBRL(leastVal[0])} tiveram só ${fmt(leastVal[1])} resgates — o valor menos procurado.`]);
@@ -384,6 +390,9 @@
       </div>
       <div class="section-title">Resgates por categoria <span class="muted" style="font-weight:400;font-size:13px;">(marketplace)</span></div>
       <div class="card"><div class="chart-wrap"><canvas id="c3"></canvas></div></div>` +
+      (rewardSorted.length ? `
+      <div class="section-title">Recompensas mais resgatadas <span class="muted" style="font-weight:400;font-size:13px;">(top 10 · marketplace)</span></div>
+      <div class="card"><div class="chart-wrap"><canvas id="c5"></canvas></div></div>` : '') +
       (hasPrice ? `
       <div class="section-title">Faixa de valor dos resgates <span class="muted" style="font-weight:400;font-size:13px;">(marketplace)</span></div>
       <div class="card"><div class="chart-wrap"><canvas id="c4"></canvas></div></div>` : '');
@@ -392,6 +401,7 @@
     const rd = clientSeries(d => d.redemptions?.metrics?.total_redemptions, { nonZero: true });
     barChart('c2', 'Resgates', rd.labels, rd.data, 6);
     barChart('c3', 'Resgates', catSorted.map(x => x[0]), catSorted.map(x => x[1]), 0);
+    if (rewardSorted.length) { const top = rewardSorted.slice(0, 10); barChart('c5', 'Resgates', top.map(x => x[0]), top.map(x => x[1]), 6); }
     if (hasPrice) barChart('c4', 'Resgates', PRICE_BANDS.map(b => b.label), PRICE_BANDS.map(b => bandCounts[b.label]), 3);
   }
 
