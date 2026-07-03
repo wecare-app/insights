@@ -98,6 +98,15 @@
   }
   function dc(path) { return deltaChip(sumBy(path), sumByPrev(path)); }
 
+  const PRICE_BANDS = [
+    { label: 'Até R$50', max: 50 },
+    { label: 'R$50–100', max: 100 },
+    { label: 'R$100–250', max: 250 },
+    { label: 'R$250–500', max: 500 },
+    { label: 'R$500+', max: Infinity }
+  ];
+  function bandFor(p) { return (PRICE_BANDS.find(b => p <= b.max) || PRICE_BANDS[PRICE_BANDS.length - 1]).label; }
+
   // KPI de avaliação mostrando respondidas / criadas + taxa (com fallback se a API
   // ainda não expõe "answered" — mostra só as criadas nesse caso).
   function evalKpi(label, section) {
@@ -338,32 +347,49 @@
   function renderRedemptions() {
     const byType = {};
     const byCategory = {};
+    const byPrice = {};
     ok(clients()).forEach(c => {
       const bt = c.data.redemptions?.metrics?.by_type || {};
       Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
       const pc = c.data.redemptions?.metrics?.per_category || {};
       Object.entries(pc).forEach(([k, v]) => { byCategory[k] = (byCategory[k] || 0) + (Number(v) || 0); });
+      const bp = c.data.redemptions?.metrics?.by_price || {};
+      Object.entries(bp).forEach(([k, v]) => { byPrice[k] = (byPrice[k] || 0) + (Number(v) || 0); });
     });
     const catSorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
     const topCat = catSorted[0];
+
+    const priceEntries = Object.entries(byPrice).map(([p, n]) => [Number(p), n]).filter(([p, n]) => p > 0 && n > 0);
+    const hasPrice = priceEntries.length > 0;
+    const byCount = [...priceEntries].sort((a, b) => b[1] - a[1]);
+    const mostVal = byCount[0], leastVal = byCount[byCount.length - 1];
+    const bandCounts = {};
+    PRICE_BANDS.forEach(b => { bandCounts[b.label] = 0; });
+    priceEntries.forEach(([p, n]) => { bandCounts[bandFor(p)] += n; });
 
     const html = kpis([
       ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.', dc(d => d.redemptions?.metrics?.total_redemptions)],
       ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.', dc(d => d.redemptions?.metrics?.redeemed_points)],
       ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.', dc(d => d.redemptions?.metrics?.total_brl)],
       ['Categoria + resgatada', topCat ? esc(topCat[0]) : '—', topCat ? `${fmt(topCat[1])} resgates de marketplace nesta categoria no período.` : 'Sem resgates de marketplace no período.'],
+      ['Valor mais resgatado', hasPrice ? fmtBRL(mostVal[0]) : '—', hasPrice ? `Recompensas de ${fmtBRL(mostVal[0])} tiveram ${fmt(mostVal[1])} resgates — o valor mais procurado.` : 'Sem dados de valor no período.'],
+      ['Valor menos resgatado', hasPrice ? fmtBRL(leastVal[0]) : '—', hasPrice ? `Recompensas de ${fmtBRL(leastVal[0])} tiveram só ${fmt(leastVal[1])} resgates — o valor menos procurado.` : 'Sem dados de valor no período.'],
     ]) + `
       <div class="grid" style="grid-template-columns:1fr 2fr;align-items:start;">
         <div><div class="section-title">Por tipo</div><div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div></div>
         <div><div class="section-title">Resgates por cliente</div><div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div></div>
       </div>
       <div class="section-title">Resgates por categoria <span class="muted" style="font-weight:400;font-size:13px;">(marketplace)</span></div>
-      <div class="card"><div class="chart-wrap"><canvas id="c3"></canvas></div></div>`;
+      <div class="card"><div class="chart-wrap"><canvas id="c3"></canvas></div></div>` +
+      (hasPrice ? `
+      <div class="section-title">Faixa de valor dos resgates <span class="muted" style="font-weight:400;font-size:13px;">(marketplace)</span></div>
+      <div class="card"><div class="chart-wrap"><canvas id="c4"></canvas></div></div>` : '');
     document.getElementById('content').innerHTML = html;
     pieChart('c1', Object.keys(byType), Object.values(byType));
     const rd = clientSeries(d => d.redemptions?.metrics?.total_redemptions, { nonZero: true });
     barChart('c2', 'Resgates', rd.labels, rd.data, 6);
     barChart('c3', 'Resgates', catSorted.map(x => x[0]), catSorted.map(x => x[1]), 0);
+    if (hasPrice) barChart('c4', 'Resgates', PRICE_BANDS.map(b => b.label), PRICE_BANDS.map(b => bandCounts[b.label]), 3);
   }
 
   const PORTE_ORDER = ['1-50', '51-200', '201-500', '500+'];
