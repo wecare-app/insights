@@ -4,6 +4,8 @@ module Insights
 
     MAX_CACHE_TTL = 1800
     CACHE_TTL = [ENV.fetch('INSIGHTS_CACHE_TTL', 900).to_i, MAX_CACHE_TTL].min
+    # Bump para invalidar todo o cache quando a API do monólito ganha campos novos.
+    CACHE_VERSION = 'v2'
 
     # No overview a dashboard usa só as métricas de cada seção — nunca as listas.
     # Pedir apenas as métricas corta drasticamente o payload por empresa.
@@ -97,7 +99,7 @@ module Insights
 
     def cache_key(client_company, params)
       digest = params.sort.to_h.map { |k, v| "#{k}=#{v}" }.join('&')
-      "insights:company:#{client_company.id}:#{digest}"
+      "insights:#{CACHE_VERSION}:company:#{client_company.id}:#{digest}"
     end
 
     def aggregate_totals(results)
