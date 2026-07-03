@@ -337,23 +337,33 @@
 
   function renderRedemptions() {
     const byType = {};
+    const byCategory = {};
     ok(clients()).forEach(c => {
       const bt = c.data.redemptions?.metrics?.by_type || {};
       Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
+      const pc = c.data.redemptions?.metrics?.per_category || {};
+      Object.entries(pc).forEach(([k, v]) => { byCategory[k] = (byCategory[k] || 0) + (Number(v) || 0); });
     });
+    const catSorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+    const topCat = catSorted[0];
+
     const html = kpis([
       ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.', dc(d => d.redemptions?.metrics?.total_redemptions)],
       ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.', dc(d => d.redemptions?.metrics?.redeemed_points)],
       ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.', dc(d => d.redemptions?.metrics?.total_brl)],
+      ['Categoria + resgatada', topCat ? esc(topCat[0]) : '—', topCat ? `${fmt(topCat[1])} resgates de marketplace nesta categoria no período.` : 'Sem resgates de marketplace no período.'],
     ]) + `
       <div class="grid" style="grid-template-columns:1fr 2fr;align-items:start;">
         <div><div class="section-title">Por tipo</div><div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div></div>
         <div><div class="section-title">Resgates por cliente</div><div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div></div>
-      </div>`;
+      </div>
+      <div class="section-title">Resgates por categoria <span class="muted" style="font-weight:400;font-size:13px;">(marketplace)</span></div>
+      <div class="card"><div class="chart-wrap"><canvas id="c3"></canvas></div></div>`;
     document.getElementById('content').innerHTML = html;
     pieChart('c1', Object.keys(byType), Object.values(byType));
     const rd = clientSeries(d => d.redemptions?.metrics?.total_redemptions, { nonZero: true });
     barChart('c2', 'Resgates', rd.labels, rd.data, 6);
+    barChart('c3', 'Resgates', catSorted.map(x => x[0]), catSorted.map(x => x[1]), 0);
   }
 
   const PORTE_ORDER = ['1-50', '51-200', '201-500', '500+'];
