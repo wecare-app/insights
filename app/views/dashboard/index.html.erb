@@ -257,14 +257,13 @@
       <div class="section-title">Usuários ativos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
       <div class="section-title">Por cliente <span class="muted" style="font-weight:400;font-size:13px;">(visão individual)</span></div>
-      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>IQR <span class="info" title="Índice de qualidade dos reconhecimentos (0–100), quando a empresa usa o recurso.">i</span></th><th>Base <span class="info" title="Última entrada ou saída de colaborador (contratação/desligamento).">i</span></th><th>Sinal</th></tr></thead>
+      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Usuários ativos</th><th>Ativos no mês <span class="info" title="Pessoas distintas que acessaram no período (logins únicos).">i</span></th><th>Resgates</th><th>Base <span class="info" title="Última entrada ou saída de colaborador (contratação/desligamento).">i</span></th><th>Sinal</th></tr></thead>
       <tbody>${clients().map(c => {
         const d = c.data || {};
         const st = signalTag(c);
         return `<tr><td>${esc(c.client)}</td><td>${d.balances ? fmtBRL(d.balances.total_brl) : '—'}</td>
-          <td>${fmt(d.recognitions?.metrics?.recognitions_count)}</td>
-          <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.successful_logins)}</td>
-          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${fmtIqr(d)}</td><td>${fmtDate(d.company_profile?.base_updated_at)}</td><td>${st}</td></tr>`;
+          <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.unique_users_logged)}</td>
+          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${fmtDate(d.company_profile?.base_updated_at)}</td><td>${st}</td></tr>`;
       }).join('')}</tbody></table>`;
     document.getElementById('content').innerHTML = html;
     const s1 = clientSeries(d => d.accesses?.metrics?.active_users, { nonZero: true });
@@ -272,13 +271,19 @@
   }
 
   function renderRecognitions() {
-    const html = kpis([
+    const recKpis = [
       ['Participantes', fmt(sumBy(d => d.recognitions?.metrics?.participants)), 'Colaboradores participantes do programa de reconhecimento.', dc(d => d.recognitions?.metrics?.participants)],
       ['Reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.recognitions_count)), 'Reconhecimentos entre pares (360) enviados no período.', dc(d => d.recognitions?.metrics?.recognitions_count)],
       ['Pontos distribuídos em reconhecimentos', fmt(sumBy(d => d.recognitions?.metrics?.distributed_points)), 'Pontos DADOS em reconhecimentos entre pares no período. Não é saldo pessoal.', dc(d => d.recognitions?.metrics?.distributed_points)],
       ['Curtidas', fmt(sumBy(d => d.recognitions?.metrics?.likes)), 'Curtidas nos reconhecimentos no período.', dc(d => d.recognitions?.metrics?.likes)],
       ['Comentários', fmt(sumBy(d => d.recognitions?.metrics?.comments)), 'Comentários nos reconhecimentos no período.', dc(d => d.recognitions?.metrics?.comments)],
-    ]) + `
+    ];
+    const iqrs = ok(clients()).map(c => iqrValue(c.data)).filter(v => v != null);
+    if (iqrs.length) {
+      const avg = iqrs.reduce((a, b) => a + b, 0) / iqrs.length;
+      recKpis.push(['IQR médio', avg.toLocaleString('pt-BR', { maximumFractionDigits: 1 }), `Média do IQR (qualidade dos reconhecimentos, 0–100) entre os ${iqrs.length} cliente(s) filtrados que usam o recurso.`]);
+    }
+    const html = kpis(recKpis) + `
       <div class="section-title">Reconhecimentos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
       <div class="section-title">Pontos distribuídos por cliente</div>
