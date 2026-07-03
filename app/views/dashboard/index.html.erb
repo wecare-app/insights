@@ -98,6 +98,15 @@
   }
   function dc(path) { return deltaChip(sumBy(path), sumByPrev(path)); }
 
+  // Série "por cliente" ordenada do maior para o menor; nonZero remove quem tem 0
+  // (evita poluição visual e desalinhamento de rótulos com muitas barras vazias).
+  function clientSeries(valFn, opts = {}) {
+    let arr = ok(clients()).map(c => ({ name: c.client, v: Number(valFn(c.data)) || 0 }));
+    if (opts.nonZero) arr = arr.filter(x => x.v > 0);
+    arr.sort((a, b) => b.v - a.v);
+    return { labels: arr.map(x => x.name), data: arr.map(x => x.v) };
+  }
+
   function kpi(label, value, tip, delta) {
     const info = tip ? ` <span class="info" title="${tip}">i</span>` : '';
     const foot = delta ? `<div class="foot">${delta}</div>` : '';
@@ -230,7 +239,8 @@
           <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${st}</td></tr>`;
       }).join('')}</tbody></table>`;
     document.getElementById('content').innerHTML = html;
-    barChart('c1', 'Usuários ativos', ok(clients()).map(c => c.client), ok(clients()).map(c => c.data.accesses?.metrics?.active_users || 0), 3);
+    const s1 = clientSeries(d => d.accesses?.metrics?.active_users, { nonZero: true });
+    barChart('c1', 'Usuários ativos', s1.labels, s1.data, 3);
   }
 
   function renderRecognitions() {
@@ -246,9 +256,10 @@
       <div class="section-title">Pontos distribuídos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div>`;
     document.getElementById('content').innerHTML = html;
-    const cs = ok(clients());
-    barChart('c1', 'Reconhecimentos', cs.map(c => c.client), cs.map(c => c.data.recognitions?.metrics?.recognitions_count || 0), 0);
-    barChart('c2', 'Pontos', cs.map(c => c.client), cs.map(c => c.data.recognitions?.metrics?.distributed_points || 0), 1);
+    const r1 = clientSeries(d => d.recognitions?.metrics?.recognitions_count, { nonZero: true });
+    barChart('c1', 'Reconhecimentos', r1.labels, r1.data, 0);
+    const r2 = clientSeries(d => d.recognitions?.metrics?.distributed_points, { nonZero: true });
+    barChart('c2', 'Pontos', r2.labels, r2.data, 1);
   }
 
   function hourlyTotals() {
@@ -279,9 +290,10 @@
       <div class="card"><div class="chart-wrap"><canvas id="c2"></canvas></div></div>`;
     document.getElementById('content').innerHTML = html;
     barChart('c3', 'Logins', Array.from({ length: 24 }, (_, h) => `${h}h`), totals, 2);
-    const cs = ok(clients());
-    barChart('c1', 'Ativos', cs.map(c => c.client), cs.map(c => c.data.accesses?.metrics?.active_users || 0), 3);
-    barChart('c2', 'Logins', cs.map(c => c.client), cs.map(c => c.data.accesses?.metrics?.successful_logins || 0), 4);
+    const a1 = clientSeries(d => d.accesses?.metrics?.active_users, { nonZero: true });
+    barChart('c1', 'Ativos', a1.labels, a1.data, 3);
+    const a2 = clientSeries(d => d.accesses?.metrics?.successful_logins, { nonZero: true });
+    barChart('c2', 'Logins', a2.labels, a2.data, 4);
   }
 
   function renderEngagement() {
@@ -327,8 +339,8 @@
       </div>`;
     document.getElementById('content').innerHTML = html;
     pieChart('c1', Object.keys(byType), Object.values(byType));
-    const cs = ok(clients());
-    barChart('c2', 'Resgates', cs.map(c => c.client), cs.map(c => c.data.redemptions?.metrics?.total_redemptions || 0), 6);
+    const rd = clientSeries(d => d.redemptions?.metrics?.total_redemptions, { nonZero: true });
+    barChart('c2', 'Resgates', rd.labels, rd.data, 6);
   }
 
   const PORTE_ORDER = ['1-50', '51-200', '201-500', '500+'];
