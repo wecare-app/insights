@@ -98,6 +98,9 @@
   }
   function dc(path) { return deltaChip(sumBy(path), sumByPrev(path)); }
 
+  function iqrValue(d) { const v = d?.recognitions?.metrics?.iqr?.iqr_value; return (v == null) ? null : Number(v); }
+  function fmtIqr(d) { const v = iqrValue(d); return (v == null) ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }); }
+
   const PRICE_BANDS = [
     { label: 'Até R$50', max: 50 },
     { label: 'R$50–100', max: 100 },
@@ -251,14 +254,14 @@
       <div class="section-title">Usuários ativos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
       <div class="section-title">Por cliente <span class="muted" style="font-weight:400;font-size:13px;">(visão individual)</span></div>
-      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>Sinal</th></tr></thead>
+      <table><thead><tr><th>Cliente</th><th>Saldo do cliente (R$) <span class="info" title="Saldo não gasto. Créditos: valor em R$. Pontos: (saldo empresa + saldo pessoal + saldo p/ reconhecer) × valor do ponto.">i</span></th><th>Reconhecimentos</th><th>Usuários ativos</th><th>Logins</th><th>Resgates</th><th>IQR <span class="info" title="Índice de qualidade dos reconhecimentos (0–100), quando a empresa usa o recurso.">i</span></th><th>Sinal</th></tr></thead>
       <tbody>${clients().map(c => {
         const d = c.data || {};
         const st = signalTag(c);
         return `<tr><td>${esc(c.client)}</td><td>${d.balances ? fmtBRL(d.balances.total_brl) : '—'}</td>
           <td>${fmt(d.recognitions?.metrics?.recognitions_count)}</td>
           <td>${fmt(d.accesses?.metrics?.active_users)}</td><td>${fmt(d.accesses?.metrics?.successful_logins)}</td>
-          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${st}</td></tr>`;
+          <td>${fmt(d.redemptions?.metrics?.total_redemptions)}</td><td>${fmtIqr(d)}</td><td>${st}</td></tr>`;
       }).join('')}</tbody></table>`;
     document.getElementById('content').innerHTML = html;
     const s1 = clientSeries(d => d.accesses?.metrics?.active_users, { nonZero: true });
@@ -530,14 +533,20 @@
     const MODALITY_LABELS = { points: 'Pontos', 'pre-paid': 'Pontos (pré-pago)', 'pos-paid': 'Pontos (pós-pago)', credits: 'Créditos' };
     const modalityLabel = (m) => MODALITY_LABELS[m] || (m ? esc(m) : '—');
 
-    html += kpis([
+    const clientKpis = [
       ['Saldo do cliente (R$)', fmtBRL(d.balances?.total_brl), 'Saldo não gasto (pontos ou créditos convertidos em R$).'],
       ['Colaboradores', `${fmt(p.users_active)} / ${fmt(p.users_total)}`, 'Ativos / total.'],
       ['Porte', esc(p.porte || '—'), 'Faixa por nº de colaboradores.'],
       ['Modelo de pontos', modalityLabel(p.modality), 'Pontos = saldo em pontos; Créditos = saldo em R$.'],
       ['Reconhecimentos', fmt(d.recognitions?.metrics?.recognitions_count), 'No período.'],
       ['Resgates', fmt(d.redemptions?.metrics?.total_redemptions), 'No período.'],
-    ]);
+    ];
+    const iqr = d.recognitions?.metrics?.iqr;
+    if (iqr && iqr.iqr_value != null) {
+      const parts = [iqr.iqr_quality_label, iqr.iqr_comparison_text].filter(Boolean).map(esc).join(' · ');
+      clientKpis.push(['IQR dos reconhecimentos', fmtIqr(d), `Índice de qualidade dos reconhecimentos no período (0–100).${parts ? ' ' + parts + '.' : ''}`]);
+    }
+    html += kpis(clientKpis);
 
     html += `
       <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start;margin-top:8px;">
