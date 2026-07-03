@@ -549,11 +549,6 @@
       ['Reconhecimentos', fmt(d.recognitions?.metrics?.recognitions_count), 'No período.'],
       ['Resgates', fmt(d.redemptions?.metrics?.total_redemptions), 'No período.'],
     ];
-    const iqr = d.recognitions?.metrics?.iqr;
-    if (iqr && iqr.iqr_value != null) {
-      const parts = [iqr.iqr_quality_label, iqr.iqr_comparison_text].filter(Boolean).map(esc).join(' · ');
-      clientKpis.push(['IQR dos reconhecimentos', fmtIqr(d), `Índice de qualidade dos reconhecimentos no período (0–100).${parts ? ' ' + parts + '.' : ''}`]);
-    }
     html += kpis(clientKpis);
 
     html += `
