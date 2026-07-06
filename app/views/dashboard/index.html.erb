@@ -252,7 +252,7 @@
       ['Usuários ativos', fmt(t.active_users), 'Colaboradores com status "ativo".', dt('active_users')],
       ['Logins', fmt(t.successful_logins), 'Logins bem-sucedidos no período.', dt('successful_logins')],
       ['Resgates', fmt(t.total_redemptions), 'Trocas de recompensas (pedidos) feitas no período.', dt('total_redemptions')],
-      ['Total resgatado (R$)', fmtBRL(t.total_brl), 'Valor em reais das trocas no marketplace WeCare no período.', dt('total_brl')],
+      ['Total resgatado (R$)', fmtBRL(t.total_brl), 'Valor em reais do marketplace nacional (Giftty + Livelo). Oh Gift (Argentina) não entra: é pago com créditos internacionais, fora da carteira em R$.', dt('total_brl')],
     ]) + attentionBlock() + `
       <div class="section-title">Usuários ativos por cliente</div>
       <div class="card"><div class="chart-wrap"><canvas id="c1"></canvas></div></div>
@@ -404,7 +404,7 @@
     const kpiItems = [
       ['Resgates', fmt(sumBy(d => d.redemptions?.metrics?.total_redemptions)), 'Trocas de recompensas (pedidos) feitas no período.', dc(d => d.redemptions?.metrics?.total_redemptions)],
       ['Pontos resgatados', fmt(sumBy(d => d.redemptions?.metrics?.redeemed_points)), 'Pontos GASTOS pelos colaboradores em trocas no período.', dc(d => d.redemptions?.metrics?.redeemed_points)],
-      ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais das trocas no marketplace WeCare no período.', dc(d => d.redemptions?.metrics?.total_brl)],
+      ['Total (R$)', fmtBRL(sumBy(d => d.redemptions?.metrics?.total_brl)), 'Valor em reais do marketplace nacional (Giftty + Livelo). Oh Gift (Argentina) não entra: é pago com créditos internacionais, fora da carteira em R$.', dc(d => d.redemptions?.metrics?.total_brl)],
     ];
     if (topCat) kpiItems.push(['Categoria + resgatada', esc(topCat[0]), `${fmt(topCat[1])} resgates de marketplace nesta categoria no período.`]);
     if (topReward) kpiItems.push(['Recompensa + resgatada', esc(topReward[0]), `${fmt(topReward[1])} resgates dessa recompensa no marketplace no período.`]);
@@ -419,6 +419,7 @@
       </div>` +
       (hasOrigin ? `
       <div class="section-title">Resgates por origem <span class="muted" style="font-weight:400;font-size:13px;">(fornecedor do marketplace)</span></div>
+      <p class="muted" style="margin:-6px 0 12px;font-size:13px;">O <strong>Total (R$)</strong> acima soma só o marketplace nacional (Giftty + Livelo). O valor de <strong>Oh Gift</strong> é o equivalente em reais dos créditos internacionais e não entra no total.</p>
       <div class="card"><table><thead><tr><th>Origem</th><th style="text-align:right;">Resgates</th><th style="text-align:right;">Valor (R$)</th></tr></thead><tbody>` +
       originRows.map(([k, n, brl]) => `<tr><td>${esc(ORIGIN_LABELS[k] || k)}</td><td style="text-align:right;">${fmt(n)}</td><td style="text-align:right;">${fmtBRL(brl)}</td></tr>`).join('') +
       `</tbody></table></div>` : '') + `
