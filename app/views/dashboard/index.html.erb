@@ -369,6 +369,7 @@
     const byPrice = {};
     const byOrigin = {};      // resgates por fornecedor (giftty, oh_gift, ...)
     const brlByOrigin = {};   // R$ por fornecedor
+    const pointsByOrigin = {}; // pontos gastos por fornecedor
     ok(clients()).forEach(c => {
       const bt = c.data.redemptions?.metrics?.by_type || {};
       Object.entries(bt).forEach(([k, v]) => { byType[k] = (byType[k] || 0) + (Number(v) || 0); });
@@ -382,9 +383,11 @@
       Object.entries(bo).forEach(([k, v]) => { byOrigin[k] = (byOrigin[k] || 0) + (Number(v) || 0); });
       const brlo = c.data.redemptions?.metrics?.brl_by_origin || {};
       Object.entries(brlo).forEach(([k, v]) => { brlByOrigin[k] = (brlByOrigin[k] || 0) + (Number(v) || 0); });
+      const pbo = c.data.redemptions?.metrics?.points_by_origin || {};
+      Object.entries(pbo).forEach(([k, v]) => { pointsByOrigin[k] = (pointsByOrigin[k] || 0) + (Number(v) || 0); });
     });
     const originKeys = Array.from(new Set([...Object.keys(byOrigin), ...Object.keys(brlByOrigin)]));
-    const originRows = originKeys.map(k => [k, byOrigin[k] || 0, brlByOrigin[k] || 0])
+    const originRows = originKeys.map(k => [k, byOrigin[k] || 0, brlByOrigin[k] || 0, pointsByOrigin[k] || 0])
       .filter(([, n, brl]) => n > 0 || brl > 0)
       .sort((a, b) => b[2] - a[2] || b[1] - a[1]);
     const hasOrigin = originRows.length > 0;
@@ -420,8 +423,8 @@
       (hasOrigin ? `
       <div class="section-title">Resgates por origem <span class="muted" style="font-weight:400;font-size:13px;">(fornecedor do marketplace)</span></div>
       <p class="muted" style="margin:-6px 0 12px;font-size:13px;">O <strong>Total (R$)</strong> acima soma só o marketplace nacional (Giftty + Livelo). O valor de <strong>Oh Gift</strong> é o equivalente em reais dos créditos internacionais e não entra no total.</p>
-      <div class="card"><table><thead><tr><th>Origem</th><th style="text-align:right;">Resgates</th><th style="text-align:right;">Valor (R$)</th></tr></thead><tbody>` +
-      originRows.map(([k, n, brl]) => `<tr><td>${esc(ORIGIN_LABELS[k] || k)}</td><td style="text-align:right;">${fmt(n)}</td><td style="text-align:right;">${fmtBRL(brl)}</td></tr>`).join('') +
+      <div class="card"><table><thead><tr><th>Origem</th><th style="text-align:right;">Resgates</th><th style="text-align:right;">Pontos</th><th style="text-align:right;">Valor (R$)</th></tr></thead><tbody>` +
+      originRows.map(([k, n, brl, pts]) => `<tr><td>${esc(ORIGIN_LABELS[k] || k)}</td><td style="text-align:right;">${fmt(n)}</td><td style="text-align:right;">${fmt(pts)}</td><td style="text-align:right;">${fmtBRL(brl)}</td></tr>`).join('') +
       `</tbody></table></div>` : '') + `
       <div class="section-title">Resgates por categoria <span class="muted" style="font-weight:400;font-size:13px;">(marketplace)</span></div>
       <div class="card"><div class="chart-wrap"><canvas id="c3"></canvas></div></div>` +
